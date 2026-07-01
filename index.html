@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Handball Tagger Pro</title>
+    <style>
+        body { font-family: -apple-system, sans-serif; background: #121212; color: #fff; padding: 5px; margin: 0; box-sizing: border-box; }
+        
+        /* Cabecera optimizada solo para nombres y marcador */
+        .header-container { display: grid; grid-template-columns: 1fr 1fr; align-items: center; background: #1e1e1e; padding: 8px; border-radius: 6px; border: 1px solid #333; margin-bottom: 8px; }
+        .score-box { display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 0.9em; font-weight: bold; }
+        .team-input { width: 60px; background: transparent; border: 1px solid #444; color: white; padding: 2px; font-size: 0.9em; text-align: center; }
+        
+        /* Layout */
+        .main-layout { display: grid; grid-template-columns: 40% 30% 30%; gap: 8px; }
+        
+        /* Cronómetro en columna izquierda */
+        .timer-box { background: #1e1e1e; padding: 8px; border-radius: 4px; border: 1px solid #2d2d2d; text-align: center; margin-bottom: 5px; }
+        #timer { font-family: monospace; font-size: 1.6em; color: #00e676; margin-bottom: 4px; }
+        
+        /* Grupos y botones */
+        .group { background: #1e1e1e; padding: 4px; border-radius: 4px; margin-bottom: 4px; border: 1px solid #2d2d2d; }
+        .group-label { font-size: 0.6em; color: #ff9800; text-transform: uppercase; font-weight: bold; margin-bottom: 2px; }
+        .row { display: flex; gap: 2px; }
+        button { padding: 4px 6px; border: 1px solid #444; border-radius: 3px; background: #2c2c2c; color: #fff; font-size: 0.75em; font-weight: bold; flex: 1; cursor: pointer; }
+        button.active { background: #ff9800 !important; color: #000; }
+        
+        /* Imágenes */
+        .canvas-box { display: flex; flex-direction: column; align-items: center; justify-content: center; background: #1e1e1e; border: 1px solid #333; border-radius: 6px; padding: 5px; }
+        canvas { width: 100%; max-width: 100%; height: auto; background: #000; border-radius: 4px; display: block; margin: 0 auto; }
+        
+        table { width: 100%; font-size: 0.55em; border-collapse: collapse; margin-top: 8px; background: #1e1e1e; }
+        th, td { border: 1px solid #444; padding: 3px; text-align: center; }
+    </style>
+</head>
+<body>
+
+    <div class="header-container">
+        <div class="score-box">
+            <input type="text" id="nameLOC" value="LOC" class="team-input" oninput="updateNames()">: <span id="scoreLOC">0</span>
+        </div>
+        <div class="score-box">
+            <input type="text" id="nameVIS" value="VIS" class="team-input" oninput="updateNames()">: <span id="scoreVIS">0</span>
+        </div>
+    </div>
+
+    <div class="main-layout">
+        <div>
+            <!-- Cronómetro arriba -->
+            <div class="timer-box">
+                <div id="timer">00:00:00.00</div>
+                <div class="row" style="justify-content:center; gap:5px;">
+                    <button onclick="controlTimer('start')">▶️</button>
+                    <button onclick="controlTimer('pause')">⏸️</button>
+                    <button onclick="controlTimer('reset')">🔄</button>
+                    <button id="btn-periodo" onclick="togglePeriodo()" style="background:#444;">1T</button>
+                </div>
+            </div>
+            <div class="group"><div class="group-label">Equipo</div><div class="row"><button class="btn-tag" onclick="set('Eq','LOC')" id="Eq-LOC">LOC</button><button class="btn-tag" onclick="set('Eq','VIS')" id="Eq-VIS">VIS</button></div></div>
+            <div class="group"><div class="group-label">Resultado</div><div class="row"><button class="btn-tag" onclick="set('Res','Gol')" id="Res-Gol">Gol</button><button class="btn-tag" onclick="set('Res','No Gol')" id="Res-No Gol">No Gol</button></div></div>
+            <div class="group"><div class="group-label">Fase</div><div class="row"><button class="btn-tag" onclick="set('Fase','Pos')" id="Fase-Pos">Pos</button><button class="btn-tag" onclick="set('Fase','Tra')" id="Fase-Tra">Tra</button></div></div>
+            <div class="group"><div class="group-label">Error</div><div class="row"><button class="btn-tag" onclick="set('Err','Par')" id="Err-Par">Par</button><button class="btn-tag" onclick="set('Err','Per')" id="Err-Per">Per</button><button class="btn-tag" onclick="set('Err','Fue')" id="Err-Fue">Fue</button></div></div>
+            <div class="group"><div class="group-label">Tipo</div><div class="row"><button class="btn-tag" onclick="set('Tipo','Lar')" id="Tipo-Lar">Lar</button><button class="btn-tag" onclick="set('Tipo','Pen')" id="Tipo-Pen">Pen</button><button class="btn-tag" onclick="set('Tipo','Ext')" id="Tipo-Ext">Ext</button></div><div class="row"><button class="btn-tag" onclick="set('Tipo','Piv')" id="Tipo-Piv">Piv</button><button class="btn-tag" onclick="set('Tipo','Unf')" id="Tipo-Unf">Unf</button><button class="btn-tag" onclick="set('Tipo','Dir')" id="Tipo-Dir">Dir</button></div></div>
+            <input type="text" id="extra" placeholder="Dorsal / Notas" style="width:100%; box-sizing:border-box; background:#2c2c2c; border:1px solid #444; color:white; padding:4px; font-size:0.7em;">
+            <div class="row" style="margin-top:4px;"><button onclick="save()" style="background:#2e7d32">REGISTRAR</button><button onclick="resetAll()" style="background:#c62828">LIMPIAR</button></div>
+        </div>
+
+        <div class="canvas-box">
+            <div class="group-label">Campo (Lado)</div>
+            <canvas id="cancha" width="300" height="300"></canvas>
+            <div id="c-text" style="font-size:0.6em; margin-top:2px;">Lado: N/A</div>
+        </div>
+
+        <div class="canvas-box">
+            <div class="group-label">Portería (Zona)</div>
+            <canvas id="porteria" width="300" height="150"></canvas>
+            <div id="z-text" style="font-size:0.6em; margin-top:2px;">Zona: N/A</div>
+        </div>
+    </div>
+
+    <table id="log"><thead><tr><th>Time</th><th>T</th><th>Eq</th><th>Res</th><th>Tipo</th><th>Lado</th><th>Zona</th><th>Extra</th></tr></thead><tbody></tbody></table>
+    <button onclick="exportCSV()" style="width:100%; margin-top:5px; background:#1565c0; padding:4px; font-size:0.7em;">EXPORTAR CSV</button>
+
+    <script>
+        let ms=0, run=false, data=[], score={LOC:0, VIS:0}, periodo="1T";
+        let state = {Eq:null, Res:null, Fase:null, Err:null, Tipo:null, Lado:null, Zona:null};
+        function updateNames() { document.getElementById('Eq-LOC').innerText = document.getElementById('nameLOC').value; document.getElementById('Eq-VIS').innerText = document.getElementById('nameVIS').value; }
+        function togglePeriodo() { periodo = (periodo==="1T") ? "2T" : "1T"; document.getElementById('btn-periodo').innerText = periodo; }
+        
+        const pCanvas = document.getElementById('porteria'), cCanvas = document.getElementById('cancha');
+        const pCtx = pCanvas.getContext('2d'), cCtx = cCanvas.getContext('2d');
+        const pImg = new Image(); pImg.src = 'NS_Goal_handball.png';
+        const cImg = new Image(); cImg.src = 'NS_ui_Balonmano_BL_V_T.jpg';
+        pImg.onload = () => pCtx.drawImage(pImg, 0, 0, pCanvas.width, pCanvas.height);
+        cImg.onload = () => cCtx.drawImage(cImg, 0, 0, cCanvas.width, cCanvas.height);
+
+        cCanvas.addEventListener('click', (e) => {
+            const r = cCanvas.getBoundingClientRect(), x = (e.clientX-r.left)/r.width*100;
+            state.Lado = (x<=30) ? "Izq" : (x<=70) ? "Cent" : "Der";
+            document.getElementById('c-text').innerText = 'Lado: ' + state.Lado;
+            cCtx.clearRect(0,0,cCanvas.width,cCanvas.height); cCtx.drawImage(cImg,0,0,cCanvas.width,cCanvas.height);
+            cCtx.fillStyle = "#ff9800"; cCtx.beginPath(); cCtx.arc((x/100)*cCanvas.width, 150, 8, 0, Math.PI*2); cCtx.fill();
+        });
+
+        pCanvas.addEventListener('click', (e) => {
+            const r = pCanvas.getBoundingClientRect(), x = (e.clientX-r.left)/r.width*100, y = 100 - (e.clientY-r.top)/r.height*100;
+            state.Zona = 'Z' + ((y<33?2:y<66?1:0)*3 + (x<33?1:x<66?2:3));
+            document.getElementById('z-text').innerText = 'Zona: ' + state.Zona;
+            pCtx.clearRect(0,0,pCanvas.width,pCanvas.height); pCtx.drawImage(pImg,0,0,pCanvas.width,pCanvas.height);
+            pCtx.fillStyle = "#ff9800"; pCtx.beginPath(); pCtx.arc((x/100)*pCanvas.width, (1-y/100)*pCanvas.height, 6, 0, Math.PI*2); pCtx.fill();
+        });
+
+        function controlTimer(a) { if(a=='start') run=true; else if(a=='pause') run=false; else {ms=0; document.getElementById('timer').innerText='00:00:00.00';} }
+        setInterval(() => { if(run) { ms++; let h=Math.floor(ms/360000), m=Math.floor((ms%360000)/6000), s=Math.floor((ms%6000)/100), c=ms%100; document.getElementById('timer').innerText = [h,m,s].map(v=>v.toString().padStart(2,'0')).join(':')+'.'+c.toString().padStart(2,'0'); } }, 10);
+        function set(k, v) { state[k] = (state[k]===v) ? null : v; document.querySelectorAll(`button[id^=${k}]`).forEach(b => b.classList.toggle('active', state[k]===b.innerText || (state[k]===v && b.id.includes(v)))); }
+        function resetAll() { state={Eq:null, Res:null, Fase:null, Err:null, Tipo:null, Lado:null, Zona:null}; document.querySelectorAll('.btn-tag').forEach(b=>b.classList.remove('active')); document.getElementById('extra').value=''; document.getElementById('z-text').innerText='Zona: N/A'; document.getElementById('c-text').innerText='Lado: N/A'; pCtx.drawImage(pImg,0,0,pCanvas.width,pCanvas.height); cCtx.drawImage(cImg,0,0,cCanvas.width,cCanvas.height); }
+        function save() { if(state.Res=='Gol') { score[state.Eq]++; document.getElementById('score'+state.Eq).innerText = score[state.Eq]; } document.querySelector('#log tbody').innerHTML += `<tr><td>${document.getElementById('timer').innerText}</td><td>${periodo}</td><td>${state.Eq}</td><td>${state.Res}</td><td>${state.Tipo}</td><td>${state.Lado}</td><td>${state.Zona}</td><td>${document.getElementById('extra').value}</td></tr>`; resetAll(); }
+        function exportCSV() { let csv = "Time,T,Eq,Res,Tipo,Lado,Zona,Extra\n" + data.map(r=>`${r.Time},${periodo},${state.Eq},${state.Res},${state.Tipo},${state.Lado},${state.Zona},${state.Extra}`).join("\n"); let a=document.createElement('a'); a.href='data:text/csv;charset=utf-8,'+encodeURI(csv); a.download='partido.csv'; a.click(); }
+    </script>
+</body>
+</html>
