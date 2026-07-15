@@ -71,21 +71,22 @@
         </div>
     </div>
 
+    <!-- Tabla con el orden estricto exigido por el software -->
     <table id="log">
         <thead>
             <tr>
-                <th>Periodo</th>
                 <th>Equipo</th>
                 <th>Resultado</th>
                 <th>Fase</th>
                 <th>Error</th>
                 <th>Tipo</th>
                 <th>Lado</th>
+                <th>Extra</th>
+                <th>timestamp</th>
+                <th>Periodo</th>
                 <th>Coord Lado</th>
                 <th>Porteria</th>
                 <th>Coord Porteria</th>
-                <th>Extra</th>
-                <th>Timestamp</th>
             </tr>
         </thead>
         <tbody></tbody>
@@ -117,13 +118,13 @@
         pImg.onload = () => pCtx.drawImage(pImg, 0, 0, pCanvas.width, pCanvas.height);
         cImg.onload = () => cCtx.drawImage(cImg, 0, 0, cCanvas.width, cCanvas.height);
 
-        // Lógica de click en Campo
         cCanvas.addEventListener('click', (e) => {
             const r = cCanvas.getBoundingClientRect();
             state.CX = Math.round(((e.clientX - r.left) / r.width) * 100);
             state.CY = Math.round(((e.clientY - r.top) / r.height) * 100);
             
-            state.Lado = (state.CX <= 33.33) ? "Izq" : (state.CX <= 66.66) ? "Cent" : "Der";
+            // Ajustado a 'Cen' como en tu ejemplo
+            state.Lado = (state.CX <= 33.33) ? "Izq" : (state.CX <= 66.66) ? "Cen" : "Der";
             document.getElementById('c-text').innerText = `Lado: ${state.Lado} (${state.CX}, ${state.CY})`;
             
             cCtx.clearRect(0,0,cCanvas.width,cCanvas.height); 
@@ -134,13 +135,11 @@
             cCtx.fill();
         });
 
-        // Lógica de click en Portería (Matriz 3x3)
         pCanvas.addEventListener('click', (e) => {
             const r = pCanvas.getBoundingClientRect();
             state.PX = Math.round(((e.clientX - r.left) / r.width) * 100);
             state.PY = Math.round(((e.clientY - r.top) / r.height) * 100);
             
-            // Fila (0=Arriba, 1=Medio, 2=Abajo) y Columna (1=Izq, 2=Centro, 3=Der)
             let row = (state.PY <= 33.33) ? 0 : (state.PY <= 66.66) ? 1 : 2;
             let col = (state.PX <= 33.33) ? 1 : (state.PX <= 66.66) ? 2 : 3;
             
@@ -155,7 +154,6 @@
             pCtx.fill();
         });
 
-        // Cronómetro
         function controlTimer(a) { 
             if(a=='start') run=true; 
             else if(a=='pause') run=false; 
@@ -169,10 +167,8 @@
             } 
         }, 10);
 
-        // Selección de Botones
         function set(k, v) { 
             state[k] = (state[k] === v) ? null : v; 
-            
             document.querySelectorAll(`button[id^="${k}-"]`).forEach(b => {
                 if (state[k] !== null && b.id === `${k}-${v}`) {
                     b.classList.add('active');
@@ -201,19 +197,20 @@
                 document.getElementById('score'+state.Eq).innerText = score[state.Eq]; 
             } 
             
+            // Orden estricto
             const row = `<tr>
-                <td>${periodo}</td>
                 <td>${nombreEq || ''}</td>
                 <td>${state.Res || ''}</td>
                 <td>${state.Fase || ''}</td>
                 <td>${state.Err || ''}</td>
                 <td>${state.Tipo || ''}</td>
                 <td>${state.Lado || ''}</td>
+                <td>${document.getElementById('extra').value}</td>
+                <td>${document.getElementById('timer').innerText}</td>
+                <td>${periodo}</td>
                 <td>${state.CX !== null ? state.CX+','+state.CY : ''}</td>
                 <td>${state.Zona || ''}</td>
                 <td>${state.PX !== null ? state.PX+','+state.PY : ''}</td>
-                <td>${document.getElementById('extra').value}</td>
-                <td>${document.getElementById('timer').innerText}</td>
             </tr>`;
             
             document.querySelector('#log tbody').insertAdjacentHTML('beforeend', row); 
@@ -221,9 +218,16 @@
         }
 
         function exportCSV() { 
-            let csv = "Periodo,Equipo,Resultado,Fase,Error,Tipo,Lado,Coord Lado,Porteria,Coord Porteria,Extra,Timestamp\n";
-            let rows = document.querySelectorAll('#log tbody tr');
+            let csv = "Equipo,Resultado,Fase,Error,Tipo,Lado,Extra,timestamp,Periodo,Coord Lado,Porteria,Coord Porteria\n";
             
+            // Inyectamos las dos filas de configuración obligatorias para el software
+            let locName = document.getElementById('nameLOC').value;
+            let visName = document.getElementById('nameVIS').value;
+            csv += `"${locName}","","","","","Local","","","","","",""\n`;
+            csv += `"${visName}","","","","","Visitante","","","","","",""\n`;
+
+            // Recuperamos el resto de los datos registrados
+            let rows = document.querySelectorAll('#log tbody tr');
             rows.forEach(row => {
                 let rowData = [];
                 let cols = row.querySelectorAll('td');
