@@ -6,17 +6,17 @@
     <style>
         body { font-family: -apple-system, sans-serif; background: #121212; color: #fff; padding: 8px; margin: 0; box-sizing: border-box; }
         
-        /* Cabecera */
-        .header-container { display: grid; grid-template-columns: 1fr 1fr; align-items: center; background: #1e1e1e; padding: 10px; border-radius: 6px; border: 1px solid #333; margin-bottom: 12px; }
-        .score-box { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 1.2em; font-weight: bold; }
-        .team-input { width: 80px; background: #2c2c2c; border: 1px solid #555; color: white; padding: 4px; font-size: 1em; text-align: center; border-radius: 4px; }
-        
         /* Layout a 2 columnas para el iPad en el regazo */
         .main-layout { display: grid; grid-template-columns: 55% 45%; gap: 15px; }
         
+        /* Cabecera ahora vive dentro de la columna izquierda */
+        .header-container { display: grid; grid-template-columns: 1fr 1fr; align-items: center; background: #1e1e1e; padding: 8px; border-radius: 6px; border: 1px solid #333; margin-bottom: 8px; }
+        .score-box { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 1.1em; font-weight: bold; }
+        .team-input { width: 70px; background: #2c2c2c; border: 1px solid #555; color: white; padding: 4px; font-size: 1em; text-align: center; border-radius: 4px; }
+        
         /* Columna Izquierda: Controles */
-        .timer-box { background: #1e1e1e; padding: 10px; border-radius: 6px; border: 1px solid #2d2d2d; text-align: center; margin-bottom: 10px; }
-        #timer { font-family: monospace; font-size: 2em; color: #00e676; margin-bottom: 8px; }
+        .timer-box { background: #1e1e1e; padding: 8px; border-radius: 6px; border: 1px solid #2d2d2d; text-align: center; margin-bottom: 8px; }
+        #timer { font-family: monospace; font-size: 2em; color: #00e676; margin-bottom: 6px; }
         
         .group { background: #1e1e1e; padding: 6px; border-radius: 6px; margin-bottom: 8px; border: 1px solid #2d2d2d; }
         .group-label { font-size: 0.65em; color: #9e9e9e; text-transform: uppercase; font-weight: bold; margin-bottom: 4px; padding-left: 2px; }
@@ -26,42 +26,41 @@
         button { padding: 10px 6px; border: 1px solid #444; border-radius: 4px; background: #2c2c2c; color: #ccc; font-size: 0.85em; font-weight: bold; flex: 1; cursor: pointer; transition: all 0.1s; }
         
         /* Codificación de Colores por Categoría */
-        /* Default Active */
         button.active { background: #ff9800; color: #000; border-color: #ff9800; }
-        /* Equipos */
         #Eq-LOC.active { background: #1565c0 !important; color: #fff !important; border-color: #1976d2 !important; }
         #Eq-VIS.active { background: #c62828 !important; color: #fff !important; border-color: #d32f2f !important; }
-        /* Resultados */
         #Res-Gol.active { background: #2e7d32 !important; color: #fff !important; border-color: #388e3c !important; }
         #Res-NoGol.active { background: #d84315 !important; color: #fff !important; border-color: #e64a19 !important; }
         
         /* Botones de acción grandes */
-        .action-row { display: flex; gap: 8px; margin-top: 15px; }
-        .btn-registrar { flex: 3; background: #2e7d32; color: white; padding: 15px; font-size: 1.1em; border: none; border-radius: 6px; }
+        .action-row { display: flex; gap: 8px; margin-top: 10px; }
+        .btn-registrar { flex: 3; background: #2e7d32; color: white; padding: 12px; font-size: 1.1em; border: none; border-radius: 6px; }
         .btn-registrar:active { background: #1b5e20; }
-        .btn-limpiar { flex: 1; background: #424242; color: white; border: none; border-radius: 6px; }
+        .btn-limpiar { flex: 1; background: #424242; color: white; border: none; border-radius: 6px; padding: 12px; }
 
-        /* Columna Derecha: Canvases apilados */
-        .canvas-box { display: flex; flex-direction: column; align-items: center; justify-content: center; background: #1e1e1e; border: 1px solid #333; border-radius: 6px; padding: 10px; margin-bottom: 10px; }
-        canvas { width: 100%; max-width: 100%; height: auto; background: #000; border-radius: 4px; display: block; margin: 0 auto; }
-        .coord-text { font-size: 0.7em; color: #aaa; margin-top: 5px; }
+        /* Columna Derecha: Canvases apilados - Tamaño optimizado para evitar scroll */
+        .canvas-box { display: flex; flex-direction: column; align-items: center; justify-content: center; background: #1e1e1e; border: 1px solid #333; border-radius: 6px; padding: 8px; margin-bottom: 8px; }
+        /* El max-width asegura que no se hagan inmensos hacia abajo en pantallas anchas */
+        canvas { width: 100%; max-width: 320px; height: auto; background: #000; border-radius: 4px; display: block; margin: 0 auto; }
+        .coord-text { font-size: 0.7em; color: #aaa; margin-top: 4px; }
         
-        /* Tabla con scroll y tamaño reducido para no estorbar */
-        .table-container { margin-top: 15px; max-height: 150px; overflow-y: auto; border: 1px solid #333; border-radius: 6px; }
+        /* Tabla con scroll */
+        .table-container { margin-top: 10px; max-height: 140px; overflow-y: auto; border: 1px solid #333; border-radius: 6px; }
         table { width: 100%; font-size: 0.55em; border-collapse: collapse; background: #1e1e1e; }
         th, td { border: 1px solid #444; padding: 4px; text-align: center; }
         th { background: #2c2c2c; position: sticky; top: 0; }
     </style>
 </head>
 <body>
-    <div class="header-container">
-        <div class="score-box"><input type="text" id="nameLOC" value="LOC" class="team-input" oninput="updateUI()"> : <span id="scoreLOC">0</span></div>
-        <div class="score-box"><input type="text" id="nameVIS" value="VIS" class="team-input" oninput="updateUI()"> : <span id="scoreVIS">0</span></div>
-    </div>
-
     <div class="main-layout">
         <!-- Columna Izquierda: Botonera -->
         <div>
+            <!-- Marcador alineado a la izquierda -->
+            <div class="header-container">
+                <div class="score-box"><input type="text" id="nameLOC" value="LOC" class="team-input" oninput="updateUI()"> : <span id="scoreLOC">0</span></div>
+                <div class="score-box"><input type="text" id="nameVIS" value="VIS" class="team-input" oninput="updateUI()"> : <span id="scoreVIS">0</span></div>
+            </div>
+
             <div class="timer-box">
                 <div id="timer">00:00:00.00</div>
                 <div class="row" style="justify-content:center; gap:8px;">
@@ -75,11 +74,15 @@
             <div class="group"><div class="group-label">Equipo</div><div class="row"><button class="btn-tag" onclick="set('Eq','LOC')" id="Eq-LOC">LOC</button><button class="btn-tag" onclick="set('Eq','VIS')" id="Eq-VIS">VIS</button></div></div>
             <div class="group"><div class="group-label">Resultado</div><div class="row"><button class="btn-tag" onclick="set('Res','Gol')" id="Res-Gol">Gol</button><button class="btn-tag" onclick="set('Res','No Gol')" id="Res-NoGol">No Gol</button></div></div>
             <div class="group"><div class="group-label">Fase</div><div class="row"><button class="btn-tag" onclick="set('Fase','Pos')" id="Fase-Pos">Pos</button><button class="btn-tag" onclick="set('Fase','Tra')" id="Fase-Tra">Tra</button></div></div>
-            <div class="group"><div class="group-label">Error</div><div class="row"><button class="btn-tag" onclick="set('Err','Par')" id="Err-Par">Par</button><button class="btn-tag" onclick="set('Err','Per')" id="Err-Per">Per</button><button class="btn-tag" onclick="set('Err','Fue')" id="Err-Fue">Fue</button></div></div>
+            
+            <!-- TIPO AHORA VA ANTES -->
             <div class="group"><div class="group-label">Tipo</div>
                 <div class="row" style="margin-bottom: 4px;"><button class="btn-tag" onclick="set('Tipo','Lar')" id="Tipo-Lar">Lar</button><button class="btn-tag" onclick="set('Tipo','Pen')" id="Tipo-Pen">Pen</button><button class="btn-tag" onclick="set('Tipo','Ext')" id="Tipo-Ext">Ext</button></div>
                 <div class="row"><button class="btn-tag" onclick="set('Tipo','Piv')" id="Tipo-Piv">Piv</button><button class="btn-tag" onclick="set('Tipo','Unf')" id="Tipo-Unf">Unf</button><button class="btn-tag" onclick="set('Tipo','Dir')" id="Tipo-Dir">Dir</button></div>
             </div>
+
+            <!-- ERROR AHORA VA DESPUÉS -->
+            <div class="group"><div class="group-label">Error</div><div class="row"><button class="btn-tag" onclick="set('Err','Par')" id="Err-Par">Par</button><button class="btn-tag" onclick="set('Err','Per')" id="Err-Per">Per</button><button class="btn-tag" onclick="set('Err','Fue')" id="Err-Fue">Fue</button></div></div>
             
             <div class="action-row">
                 <button class="btn-registrar" onclick="save()">REGISTRAR JUGADA</button>
@@ -141,7 +144,7 @@
         window.onload = () => {
             pImg.onload = () => pCtx.drawImage(pImg, 0, 0, pCanvas.width, pCanvas.height);
             cImg.onload = () => cCtx.drawImage(cImg, 0, 0, cCanvas.width, cCanvas.height);
-            resetAll(false); // Inicia con la UI correcta (Fase Pos activada)
+            resetAll(false);
         };
 
         cCanvas.addEventListener('click', (e) => {
@@ -194,7 +197,7 @@
 
         function set(k, v) { 
             state[k] = (state[k] === v) ? null : v; 
-            const safeV = v.replace(/\s+/g, ''); // Para que 'No Gol' coincida con 'Res-NoGol'
+            const safeV = v.replace(/\s+/g, '');
             
             document.querySelectorAll(`button[id^="${k}-"]`).forEach(b => {
                 if (state[k] !== null && b.id === `${k}-${safeV}`) {
@@ -205,14 +208,12 @@
             });
         }
 
-        // Si force=true, borra el equipo. Si no, lo mantiene (Sticky Team) y resetea la fase a 'Pos'
         function resetAll(force = false) { 
             let currentEq = force ? null : state.Eq;
             state = {Eq: currentEq, Res:null, Fase:'Pos', Err:null, Tipo:null, Lado:null, CX:null, CY:null, Zona:null, PX:null, PY:null}; 
             
             document.querySelectorAll('.btn-tag').forEach(b => {
                 b.classList.remove('active');
-                // Reimprimir estados default
                 if (b.id === 'Fase-Pos') b.classList.add('active');
                 if (currentEq && b.id === `Eq-${currentEq}`) b.classList.add('active');
             }); 
@@ -238,7 +239,6 @@
                 document.getElementById('score'+state.Eq).innerText = score[state.Eq]; 
             } 
             
-            // La columna Extra va en blanco explícitamente para mantener estructura
             const row = `<tr>
                 <td>${nombreEq || ''}</td>
                 <td>${state.Res || ''}</td>
@@ -257,11 +257,10 @@
             const tbody = document.querySelector('#log tbody');
             tbody.insertAdjacentHTML('beforeend', row); 
             
-            // Hacer scroll hacia abajo en la tabla automáticamente
             const tableContainer = document.querySelector('.table-container');
             tableContainer.scrollTop = tableContainer.scrollHeight;
 
-            resetAll(false); // Falso = Mantener el equipo actual y Fase Pos
+            resetAll(false);
         }
 
         function exportCSV() { 
