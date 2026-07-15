@@ -2,102 +2,125 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Handball Tagger Pro</title>
+    <title>Handball Tagger</title>
     <style>
-        body { font-family: -apple-system, sans-serif; background: #121212; color: #fff; padding: 5px; margin: 0; box-sizing: border-box; }
-        .header-container { display: grid; grid-template-columns: 1fr 1fr; align-items: center; background: #1e1e1e; padding: 8px; border-radius: 6px; border: 1px solid #333; margin-bottom: 8px; }
-        .score-box { display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 0.9em; font-weight: bold; }
-        .team-input { width: 60px; background: transparent; border: 1px solid #444; color: white; padding: 2px; font-size: 0.9em; text-align: center; }
+        body { font-family: -apple-system, sans-serif; background: #121212; color: #fff; padding: 8px; margin: 0; box-sizing: border-box; }
         
-        .main-layout { display: grid; grid-template-columns: 40% 30% 30%; gap: 8px; }
+        /* Cabecera */
+        .header-container { display: grid; grid-template-columns: 1fr 1fr; align-items: center; background: #1e1e1e; padding: 10px; border-radius: 6px; border: 1px solid #333; margin-bottom: 12px; }
+        .score-box { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 1.2em; font-weight: bold; }
+        .team-input { width: 80px; background: #2c2c2c; border: 1px solid #555; color: white; padding: 4px; font-size: 1em; text-align: center; border-radius: 4px; }
         
-        .timer-box { background: #1e1e1e; padding: 8px; border-radius: 4px; border: 1px solid #2d2d2d; text-align: center; margin-bottom: 5px; }
-        #timer { font-family: monospace; font-size: 1.6em; color: #00e676; margin-bottom: 4px; }
+        /* Layout a 2 columnas para el iPad */
+        .main-layout { display: grid; grid-template-columns: 55% 45%; gap: 15px; }
         
-        .group { background: #1e1e1e; padding: 4px; border-radius: 4px; margin-bottom: 4px; border: 1px solid #2d2d2d; }
-        .group-label { font-size: 0.6em; color: #ff9800; text-transform: uppercase; font-weight: bold; margin-bottom: 2px; }
-        .row { display: flex; gap: 2px; }
-        button { padding: 4px 6px; border: 1px solid #444; border-radius: 3px; background: #2c2c2c; color: #fff; font-size: 0.75em; font-weight: bold; flex: 1; cursor: pointer; }
-        button.active { background: #ff9800 !important; color: #000; }
+        /* Columna Izquierda: Controles */
+        .timer-box { background: #1e1e1e; padding: 10px; border-radius: 6px; border: 1px solid #2d2d2d; text-align: center; margin-bottom: 10px; }
+        #timer { font-family: monospace; font-size: 2em; color: #00e676; margin-bottom: 8px; }
         
-        .canvas-box { display: flex; flex-direction: column; align-items: center; justify-content: center; background: #1e1e1e; border: 1px solid #333; border-radius: 6px; padding: 5px; }
+        .group { background: #1e1e1e; padding: 6px; border-radius: 6px; margin-bottom: 8px; border: 1px solid #2d2d2d; }
+        .group-label { font-size: 0.65em; color: #9e9e9e; text-transform: uppercase; font-weight: bold; margin-bottom: 4px; padding-left: 2px; }
+        .row { display: flex; gap: 4px; }
+        
+        /* Estilos base de botones */
+        button { padding: 10px 6px; border: 1px solid #444; border-radius: 4px; background: #2c2c2c; color: #ccc; font-size: 0.85em; font-weight: bold; flex: 1; cursor: pointer; transition: all 0.1s; }
+        
+        /* Codificación de Colores por Categoría */
+        /* Default Active */
+        button.active { background: #ff9800; color: #000; border-color: #ff9800; }
+        /* Equipos */
+        #Eq-LOC.active { background: #1565c0 !important; color: #fff !important; border-color: #1976d2 !important; }
+        #Eq-VIS.active { background: #c62828 !important; color: #fff !important; border-color: #d32f2f !important; }
+        /* Resultados */
+        #Res-Gol.active { background: #2e7d32 !important; color: #fff !important; border-color: #388e3c !important; }
+        #Res-NoGol.active { background: #d84315 !important; color: #fff !important; border-color: #e64a19 !important; }
+        
+        /* Botones de acción grandes */
+        .action-row { display: flex; gap: 8px; margin-top: 15px; }
+        .btn-registrar { flex: 3; background: #2e7d32; color: white; padding: 15px; font-size: 1.1em; border: none; border-radius: 6px; }
+        .btn-registrar:active { background: #1b5e20; }
+        .btn-limpiar { flex: 1; background: #424242; color: white; border: none; border-radius: 6px; }
+
+        /* Columna Derecha: Canvases apilados */
+        .canvas-box { display: flex; flex-direction: column; align-items: center; justify-content: center; background: #1e1e1e; border: 1px solid #333; border-radius: 6px; padding: 10px; margin-bottom: 10px; }
         canvas { width: 100%; max-width: 100%; height: auto; background: #000; border-radius: 4px; display: block; margin: 0 auto; }
+        .coord-text { font-size: 0.7em; color: #aaa; margin-top: 5px; }
         
-        table { width: 100%; font-size: 0.5em; border-collapse: collapse; margin-top: 8px; background: #1e1e1e; }
-        th, td { border: 1px solid #444; padding: 3px; text-align: center; }
+        /* Tabla con scroll y tamaño reducido para no estorbar */
+        .table-container { margin-top: 15px; max-height: 150px; overflow-y: auto; border: 1px solid #333; border-radius: 6px; }
+        table { width: 100%; font-size: 0.55em; border-collapse: collapse; background: #1e1e1e; }
+        th, td { border: 1px solid #444; padding: 4px; text-align: center; }
+        th { background: #2c2c2c; position: sticky; top: 0; }
     </style>
 </head>
 <body>
     <div class="header-container">
-        <div class="score-box"><input type="text" id="nameLOC" value="LOC" class="team-input" oninput="updateUI()">: <span id="scoreLOC">0</span></div>
-        <div class="score-box"><input type="text" id="nameVIS" value="VIS" class="team-input" oninput="updateUI()">: <span id="scoreVIS">0</span></div>
+        <div class="score-box"><input type="text" id="nameLOC" value="LOC" class="team-input" oninput="updateUI()"> : <span id="scoreLOC">0</span></div>
+        <div class="score-box"><input type="text" id="nameVIS" value="VIS" class="team-input" oninput="updateUI()"> : <span id="scoreVIS">0</span></div>
     </div>
 
     <div class="main-layout">
+        <!-- Columna Izquierda: Botonera -->
         <div>
             <div class="timer-box">
                 <div id="timer">00:00:00.00</div>
-                <div class="row" style="justify-content:center; gap:5px;">
-                    <button onclick="controlTimer('start')">▶️</button>
-                    <button onclick="controlTimer('pause')">⏸️</button>
-                    <button onclick="controlTimer('reset')">🔄</button>
-                    <button id="btn-periodo" onclick="togglePeriodo()" style="background:#444;">1T</button>
+                <div class="row" style="justify-content:center; gap:8px;">
+                    <button onclick="controlTimer('start')">▶️ Iniciar</button>
+                    <button onclick="controlTimer('pause')">⏸️ Pausa</button>
+                    <button onclick="controlTimer('reset')">🔄 Cero</button>
+                    <button id="btn-periodo" onclick="togglePeriodo()" style="background:#555; max-width: 60px;">1T</button>
                 </div>
             </div>
             
             <div class="group"><div class="group-label">Equipo</div><div class="row"><button class="btn-tag" onclick="set('Eq','LOC')" id="Eq-LOC">LOC</button><button class="btn-tag" onclick="set('Eq','VIS')" id="Eq-VIS">VIS</button></div></div>
-            <div class="group"><div class="group-label">Resultado</div><div class="row"><button class="btn-tag" onclick="set('Res','Gol')" id="Res-Gol">Gol</button><button class="btn-tag" onclick="set('Res','No Gol')" id="Res-No Gol">No Gol</button></div></div>
+            <div class="group"><div class="group-label">Resultado</div><div class="row"><button class="btn-tag" onclick="set('Res','Gol')" id="Res-Gol">Gol</button><button class="btn-tag" onclick="set('Res','No Gol')" id="Res-NoGol">No Gol</button></div></div>
             <div class="group"><div class="group-label">Fase</div><div class="row"><button class="btn-tag" onclick="set('Fase','Pos')" id="Fase-Pos">Pos</button><button class="btn-tag" onclick="set('Fase','Tra')" id="Fase-Tra">Tra</button></div></div>
             <div class="group"><div class="group-label">Error</div><div class="row"><button class="btn-tag" onclick="set('Err','Par')" id="Err-Par">Par</button><button class="btn-tag" onclick="set('Err','Per')" id="Err-Per">Per</button><button class="btn-tag" onclick="set('Err','Fue')" id="Err-Fue">Fue</button></div></div>
-            <div class="group"><div class="group-label">Tipo</div><div class="row"><button class="btn-tag" onclick="set('Tipo','Lar')" id="Tipo-Lar">Lar</button><button class="btn-tag" onclick="set('Tipo','Pen')" id="Tipo-Pen">Pen</button><button class="btn-tag" onclick="set('Tipo','Ext')" id="Tipo-Ext">Ext</button></div><div class="row"><button class="btn-tag" onclick="set('Tipo','Piv')" id="Tipo-Piv">Piv</button><button class="btn-tag" onclick="set('Tipo','Unf')" id="Tipo-Unf">Unf</button><button class="btn-tag" onclick="set('Tipo','Dir')" id="Tipo-Dir">Dir</button></div></div>
+            <div class="group"><div class="group-label">Tipo</div>
+                <div class="row" style="margin-bottom: 4px;"><button class="btn-tag" onclick="set('Tipo','Lar')" id="Tipo-Lar">Lar</button><button class="btn-tag" onclick="set('Tipo','Pen')" id="Tipo-Pen">Pen</button><button class="btn-tag" onclick="set('Tipo','Ext')" id="Tipo-Ext">Ext</button></div>
+                <div class="row"><button class="btn-tag" onclick="set('Tipo','Piv')" id="Tipo-Piv">Piv</button><button class="btn-tag" onclick="set('Tipo','Unf')" id="Tipo-Unf">Unf</button><button class="btn-tag" onclick="set('Tipo','Dir')" id="Tipo-Dir">Dir</button></div>
+            </div>
             
-            <input type="text" id="extra" placeholder="Dorsal / Notas" style="width:100%; box-sizing:border-box; background:#2c2c2c; border:1px solid #444; color:white; padding:4px; font-size:0.7em;">
-            <div class="row" style="margin-top:4px;">
-                <button onclick="save()" style="background:#2e7d32">REGISTRAR</button>
-                <button onclick="resetAll()" style="background:#c62828">LIMPIAR</button>
+            <div class="action-row">
+                <button class="btn-registrar" onclick="save()">REGISTRAR JUGADA</button>
+                <button class="btn-limpiar" onclick="resetAll(true)">LIMPIAR</button>
             </div>
         </div>
 
-        <div class="canvas-box">
-            <div class="group-label">Campo (Lado)</div>
-            <canvas id="cancha" width="300" height="300"></canvas>
-            <div id="c-text" style="font-size:0.6em; margin-top:2px;">Coord: N/A</div>
-        </div>
+        <!-- Columna Derecha: Canvases -->
+        <div>
+            <div class="canvas-box">
+                <div class="group-label">Campo (Lado)</div>
+                <canvas id="cancha" width="300" height="300"></canvas>
+                <div id="c-text" class="coord-text">Lado: N/A</div>
+            </div>
 
-        <div class="canvas-box">
-            <div class="group-label">Portería (Zona)</div>
-            <canvas id="porteria" width="300" height="150"></canvas>
-            <div id="z-text" style="font-size:0.6em; margin-top:2px;">Zona: N/A</div>
+            <div class="canvas-box">
+                <div class="group-label">Portería (Zona)</div>
+                <canvas id="porteria" width="300" height="150"></canvas>
+                <div id="z-text" class="coord-text">Zona: N/A</div>
+            </div>
         </div>
     </div>
 
-    <!-- Tabla con el orden estricto exigido por el software -->
-    <table id="log">
-        <thead>
-            <tr>
-                <th>Equipo</th>
-                <th>Resultado</th>
-                <th>Fase</th>
-                <th>Error</th>
-                <th>Tipo</th>
-                <th>Lado</th>
-                <th>Extra</th>
-                <th>timestamp</th>
-                <th>Periodo</th>
-                <th>Coord Lado</th>
-                <th>Porteria</th>
-                <th>Coord Porteria</th>
-            </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
+    <!-- Tabla con logica exacta de columnas -->
+    <div class="table-container">
+        <table id="log">
+            <thead>
+                <tr>
+                    <th>Equipo</th><th>Resultado</th><th>Fase</th><th>Error</th><th>Tipo</th><th>Lado</th><th>Extra</th><th>timestamp</th><th>Periodo</th><th>Coord Lado</th><th>Porteria</th><th>Coord Porteria</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
     
-    <button onclick="exportCSV()" style="width:100%; margin-top:5px; background:#1565c0; padding:6px; font-size:0.7em; font-weight:bold; cursor:pointer;">EXPORTAR CSV</button>
+    <button onclick="exportCSV()" style="width:100%; margin-top:10px; background:#1565c0; padding:12px; font-size:0.9em; font-weight:bold; cursor:pointer; border:none; border-radius:6px; color:white;">EXPORTAR CSV (LISTO PARA SOFTWARE)</button>
 
     <script>
         let ms=0, run=false, periodo="1T";
         let score = {LOC: 0, VIS: 0}; 
-        let state = {Eq:null, Res:null, Fase:null, Err:null, Tipo:null, Lado:null, CX:null, CY:null, Zona:null, PX:null, PY:null};
+        let state = {Eq:null, Res:null, Fase:'Pos', Err:null, Tipo:null, Lado:null, CX:null, CY:null, Zona:null, PX:null, PY:null};
         
         function updateUI() { 
             document.getElementById('Eq-LOC').innerText = document.getElementById('nameLOC').value; 
@@ -115,15 +138,17 @@
         const pImg = new Image(); pImg.src = 'NS_Goal_handball.png';
         const cImg = new Image(); cImg.src = 'NS_ui_Balonmano_BL_V_T.jpg';
         
-        pImg.onload = () => pCtx.drawImage(pImg, 0, 0, pCanvas.width, pCanvas.height);
-        cImg.onload = () => cCtx.drawImage(cImg, 0, 0, cCanvas.width, cCanvas.height);
+        window.onload = () => {
+            pImg.onload = () => pCtx.drawImage(pImg, 0, 0, pCanvas.width, pCanvas.height);
+            cImg.onload = () => cCtx.drawImage(cImg, 0, 0, cCanvas.width, cCanvas.height);
+            resetAll(false); // Inicia con la UI correcta (Fase Pos activada)
+        };
 
         cCanvas.addEventListener('click', (e) => {
             const r = cCanvas.getBoundingClientRect();
             state.CX = Math.round(((e.clientX - r.left) / r.width) * 100);
             state.CY = Math.round(((e.clientY - r.top) / r.height) * 100);
             
-            // Ajustado a 'Cen' como en tu ejemplo
             state.Lado = (state.CX <= 33.33) ? "Izq" : (state.CX <= 66.66) ? "Cen" : "Der";
             document.getElementById('c-text').innerText = `Lado: ${state.Lado} (${state.CX}, ${state.CY})`;
             
@@ -169,8 +194,10 @@
 
         function set(k, v) { 
             state[k] = (state[k] === v) ? null : v; 
+            const safeV = v.replace(/\s+/g, ''); // Para que 'No Gol' coincida con 'Res-NoGol'
+            
             document.querySelectorAll(`button[id^="${k}-"]`).forEach(b => {
-                if (state[k] !== null && b.id === `${k}-${v}`) {
+                if (state[k] !== null && b.id === `${k}-${safeV}`) {
                     b.classList.add('active');
                 } else {
                     b.classList.remove('active');
@@ -178,14 +205,28 @@
             });
         }
 
-        function resetAll() { 
-            state = {Eq:null, Res:null, Fase:null, Err:null, Tipo:null, Lado:null, CX:null, CY:null, Zona:null, PX:null, PY:null}; 
-            document.querySelectorAll('.btn-tag').forEach(b => b.classList.remove('active')); 
-            document.getElementById('extra').value=''; 
-            document.getElementById('c-text').innerText='Coord: N/A'; 
+        // Si force=true, borra el equipo. Si no, lo mantiene (Sticky Team) y resetea la fase a 'Pos'
+        function resetAll(force = false) { 
+            let currentEq = force ? null : state.Eq;
+            state = {Eq: currentEq, Res:null, Fase:'Pos', Err:null, Tipo:null, Lado:null, CX:null, CY:null, Zona:null, PX:null, PY:null}; 
+            
+            document.querySelectorAll('.btn-tag').forEach(b => {
+                b.classList.remove('active');
+                // Reimprimir estados default
+                if (b.id === 'Fase-Pos') b.classList.add('active');
+                if (currentEq && b.id === `Eq-${currentEq}`) b.classList.add('active');
+            }); 
+            
+            document.getElementById('c-text').innerText='Lado: N/A'; 
             document.getElementById('z-text').innerText='Zona: N/A'; 
-            pCtx.drawImage(pImg,0,0,pCanvas.width,pCanvas.height); 
-            cCtx.drawImage(cImg,0,0,cCanvas.width,cCanvas.height); 
+            if(pImg.complete) {
+                pCtx.clearRect(0,0,pCanvas.width,pCanvas.height);
+                pCtx.drawImage(pImg,0,0,pCanvas.width,pCanvas.height); 
+            }
+            if(cImg.complete) {
+                cCtx.clearRect(0,0,cCanvas.width,cCanvas.height);
+                cCtx.drawImage(cImg,0,0,cCanvas.width,cCanvas.height); 
+            }
         }
 
         function save() { 
@@ -197,7 +238,7 @@
                 document.getElementById('score'+state.Eq).innerText = score[state.Eq]; 
             } 
             
-            // Orden estricto
+            // La columna Extra va en blanco explícitamente para mantener estructura
             const row = `<tr>
                 <td>${nombreEq || ''}</td>
                 <td>${state.Res || ''}</td>
@@ -205,7 +246,7 @@
                 <td>${state.Err || ''}</td>
                 <td>${state.Tipo || ''}</td>
                 <td>${state.Lado || ''}</td>
-                <td>${document.getElementById('extra').value}</td>
+                <td></td> 
                 <td>${document.getElementById('timer').innerText}</td>
                 <td>${periodo}</td>
                 <td>${state.CX !== null ? state.CX+','+state.CY : ''}</td>
@@ -213,20 +254,24 @@
                 <td>${state.PX !== null ? state.PX+','+state.PY : ''}</td>
             </tr>`;
             
-            document.querySelector('#log tbody').insertAdjacentHTML('beforeend', row); 
-            resetAll(); 
+            const tbody = document.querySelector('#log tbody');
+            tbody.insertAdjacentHTML('beforeend', row); 
+            
+            // Hacer scroll hacia abajo en la tabla automáticamente
+            const tableContainer = document.querySelector('.table-container');
+            tableContainer.scrollTop = tableContainer.scrollHeight;
+
+            resetAll(false); // Falso = Mantener el equipo actual y Fase Pos
         }
 
         function exportCSV() { 
             let csv = "Equipo,Resultado,Fase,Error,Tipo,Lado,Extra,timestamp,Periodo,Coord Lado,Porteria,Coord Porteria\n";
             
-            // Inyectamos las dos filas de configuración obligatorias para el software
             let locName = document.getElementById('nameLOC').value;
             let visName = document.getElementById('nameVIS').value;
             csv += `"${locName}","","","","","Local","","","","","",""\n`;
             csv += `"${visName}","","","","","Visitante","","","","","",""\n`;
 
-            // Recuperamos el resto de los datos registrados
             let rows = document.querySelectorAll('#log tbody tr');
             rows.forEach(row => {
                 let rowData = [];
