@@ -9,14 +9,14 @@
         /* Layout a 2 columnas para el iPad en el regazo */
         .main-layout { display: grid; grid-template-columns: 55% 45%; gap: 15px; }
         
-        /* Cabecera ahora vive dentro de la columna izquierda */
-        .header-container { display: grid; grid-template-columns: 1fr 1fr; align-items: center; background: #1e1e1e; padding: 8px; border-radius: 6px; border: 1px solid #333; margin-bottom: 8px; }
+        /* Cabecera alineada a la izquierda */
+        .header-container { display: grid; grid-template-columns: 1fr 1fr; align-items: center; background: #1e1e1e; padding: 6px; border-radius: 6px; border: 1px solid #333; margin-bottom: 6px; }
         .score-box { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 1.1em; font-weight: bold; }
         .team-input { width: 70px; background: #2c2c2c; border: 1px solid #555; color: white; padding: 4px; font-size: 1em; text-align: center; border-radius: 4px; }
         
-        /* Columna Izquierda: Controles */
-        .timer-box { background: #1e1e1e; padding: 8px; border-radius: 6px; border: 1px solid #2d2d2d; text-align: center; margin-bottom: 8px; }
-        #timer { font-family: monospace; font-size: 2em; color: #00e676; margin-bottom: 6px; }
+        /* Columna Izquierda: Controles (Cronómetro más compacto) */
+        .timer-box { background: #1e1e1e; padding: 4px 8px; border-radius: 6px; border: 1px solid #2d2d2d; text-align: center; margin-bottom: 8px; }
+        #timer { font-family: monospace; font-size: 1.5em; color: #00e676; margin-bottom: 4px; }
         
         .group { background: #1e1e1e; padding: 6px; border-radius: 6px; margin-bottom: 8px; border: 1px solid #2d2d2d; }
         .group-label { font-size: 0.65em; color: #9e9e9e; text-transform: uppercase; font-weight: bold; margin-bottom: 4px; padding-left: 2px; }
@@ -38,9 +38,8 @@
         .btn-registrar:active { background: #1b5e20; }
         .btn-limpiar { flex: 1; background: #424242; color: white; border: none; border-radius: 6px; padding: 12px; }
 
-        /* Columna Derecha: Canvases apilados - Tamaño optimizado para evitar scroll */
+        /* Columna Derecha: Canvases (Sin títulos) */
         .canvas-box { display: flex; flex-direction: column; align-items: center; justify-content: center; background: #1e1e1e; border: 1px solid #333; border-radius: 6px; padding: 8px; margin-bottom: 8px; }
-        /* El max-width asegura que no se hagan inmensos hacia abajo en pantallas anchas */
         canvas { width: 100%; max-width: 320px; height: auto; background: #000; border-radius: 4px; display: block; margin: 0 auto; }
         .coord-text { font-size: 0.7em; color: #aaa; margin-top: 4px; }
         
@@ -55,7 +54,6 @@
     <div class="main-layout">
         <!-- Columna Izquierda: Botonera -->
         <div>
-            <!-- Marcador alineado a la izquierda -->
             <div class="header-container">
                 <div class="score-box"><input type="text" id="nameLOC" value="LOC" class="team-input" oninput="updateUI()"> : <span id="scoreLOC">0</span></div>
                 <div class="score-box"><input type="text" id="nameVIS" value="VIS" class="team-input" oninput="updateUI()"> : <span id="scoreVIS">0</span></div>
@@ -63,11 +61,12 @@
 
             <div class="timer-box">
                 <div id="timer">00:00:00.00</div>
+                <!-- Botones del cronómetro más compactos -->
                 <div class="row" style="justify-content:center; gap:8px;">
-                    <button onclick="controlTimer('start')">▶️ Iniciar</button>
-                    <button onclick="controlTimer('pause')">⏸️ Pausa</button>
-                    <button onclick="controlTimer('reset')">🔄 Cero</button>
-                    <button id="btn-periodo" onclick="togglePeriodo()" style="background:#555; max-width: 60px;">1T</button>
+                    <button onclick="controlTimer('start')" style="padding: 4px;">▶️</button>
+                    <button onclick="controlTimer('pause')" style="padding: 4px;">⏸️</button>
+                    <button onclick="controlTimer('reset')" style="padding: 4px;">🔄</button>
+                    <button id="btn-periodo" onclick="togglePeriodo()" style="background:#555; max-width: 60px; padding: 4px;">1T</button>
                 </div>
             </div>
             
@@ -75,13 +74,11 @@
             <div class="group"><div class="group-label">Resultado</div><div class="row"><button class="btn-tag" onclick="set('Res','Gol')" id="Res-Gol">Gol</button><button class="btn-tag" onclick="set('Res','No Gol')" id="Res-NoGol">No Gol</button></div></div>
             <div class="group"><div class="group-label">Fase</div><div class="row"><button class="btn-tag" onclick="set('Fase','Pos')" id="Fase-Pos">Pos</button><button class="btn-tag" onclick="set('Fase','Tra')" id="Fase-Tra">Tra</button></div></div>
             
-            <!-- TIPO AHORA VA ANTES -->
             <div class="group"><div class="group-label">Tipo</div>
                 <div class="row" style="margin-bottom: 4px;"><button class="btn-tag" onclick="set('Tipo','Lar')" id="Tipo-Lar">Lar</button><button class="btn-tag" onclick="set('Tipo','Pen')" id="Tipo-Pen">Pen</button><button class="btn-tag" onclick="set('Tipo','Ext')" id="Tipo-Ext">Ext</button></div>
                 <div class="row"><button class="btn-tag" onclick="set('Tipo','Piv')" id="Tipo-Piv">Piv</button><button class="btn-tag" onclick="set('Tipo','Unf')" id="Tipo-Unf">Unf</button><button class="btn-tag" onclick="set('Tipo','Dir')" id="Tipo-Dir">Dir</button></div>
             </div>
 
-            <!-- ERROR AHORA VA DESPUÉS -->
             <div class="group"><div class="group-label">Error</div><div class="row"><button class="btn-tag" onclick="set('Err','Par')" id="Err-Par">Par</button><button class="btn-tag" onclick="set('Err','Per')" id="Err-Per">Per</button><button class="btn-tag" onclick="set('Err','Fue')" id="Err-Fue">Fue</button></div></div>
             
             <div class="action-row">
@@ -93,13 +90,11 @@
         <!-- Columna Derecha: Canvases -->
         <div>
             <div class="canvas-box">
-                <div class="group-label">Campo (Lado)</div>
                 <canvas id="cancha" width="300" height="300"></canvas>
                 <div id="c-text" class="coord-text">Lado: N/A</div>
             </div>
 
             <div class="canvas-box">
-                <div class="group-label">Portería (Zona)</div>
                 <canvas id="porteria" width="300" height="150"></canvas>
                 <div id="z-text" class="coord-text">Zona: N/A</div>
             </div>
@@ -118,7 +113,8 @@
         </table>
     </div>
     
-    <button onclick="exportCSV()" style="width:100%; margin-top:10px; background:#1565c0; padding:12px; font-size:0.9em; font-weight:bold; cursor:pointer; border:none; border-radius:6px; color:white;">EXPORTAR CSV (LISTO PARA SOFTWARE)</button>
+    <!-- Botón exportar simplificado -->
+    <button onclick="exportCSV()" style="width:100%; margin-top:10px; background:#1565c0; padding:12px; font-size:0.9em; font-weight:bold; cursor:pointer; border:none; border-radius:6px; color:white;">EXPORTAR CSV</button>
 
     <script>
         let ms=0, run=false, periodo="1T";
