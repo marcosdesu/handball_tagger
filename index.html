@@ -278,10 +278,35 @@
                 csv += rowData.join(",") + "\n";
             });
             
-            let a = document.createElement('a'); 
-            a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv); 
-            a.download = 'partido_scouting.csv'; 
-            a.click(); 
+            // --- NUEVA LÓGICA DE EXPORTACIÓN (COMPATIBLE CON IPAD) ---
+            const nombreArchivo = 'partido_scouting.csv';
+            
+            // Creamos el archivo
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const file = new File([blob], nombreArchivo, { type: blob.type });
+
+            // Detectamos si el navegador puede abrir el menú nativo (iPad/iPhone)
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                navigator.share({
+                    files: [file],
+                    title: 'Scouting Partido',
+                    text: 'Aquí está el archivo CSV del partido.'
+                }).then(() => {
+                    console.log('Menú de exportación abierto');
+                }).catch((error) => {
+                    console.error('Error al exportar:', error);
+                });
+            } else {
+                // Descarga normal para la computadora
+                const link = document.createElement("a");
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                link.setAttribute("download", nombreArchivo);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
         }
     </script>
 </body>
