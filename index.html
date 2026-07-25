@@ -7,51 +7,47 @@
     <style>
         body { font-family: -apple-system, sans-serif; background: #121212; color: #fff; padding: 12px; margin: 0; box-sizing: border-box; }
         
-        /* Layout Principal: Alturas equilibradas */
         .main-layout { display: grid; grid-template-columns: 50% 50%; gap: 15px; align-items: stretch; }
-        .left-col { display: flex; flex-direction: column; justify-content: space-between; }
+        .left-col { display: flex; flex-direction: column; justify-content: space-between; gap: 10px; }
         .right-col { display: flex; flex-direction: column; gap: 10px; background: #1a1a1a; padding: 12px; border-radius: 8px; border: 1px solid #333; }
         
-        /* Cabecera y Marcador */
-        .header-container { display: grid; grid-template-columns: 1fr 1fr; align-items: center; background: #1e1e1e; padding: 10px; border-radius: 8px; border: 1px solid #333; margin-bottom: 10px; }
+        .header-container { display: grid; grid-template-columns: 1fr 1fr; align-items: center; background: #1e1e1e; padding: 10px; border-radius: 8px; border: 1px solid #333; }
         .score-box { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 1.4em; font-weight: bold; }
         .team-input { width: 80px; background: #2c2c2c; border: 1px solid #555; color: white; padding: 6px; font-size: 0.9em; text-align: center; border-radius: 4px; }
         
-        /* Cronómetro */
-        .timer-box { background: #1e1e1e; padding: 10px; border-radius: 8px; border: 1px solid #2d2d2d; text-align: center; margin-bottom: 15px; }
+        .timer-box { background: #1e1e1e; padding: 10px; border-radius: 8px; border: 1px solid #2d2d2d; text-align: center; }
         #timer { font-family: monospace; font-size: 2em; color: #00e676; margin-bottom: 8px; font-weight: bold;}
         .row { display: flex; gap: 6px; justify-content: center; }
         .btn-timer { background: #333; color: white; border: none; padding: 8px 12px; border-radius: 4px; font-size: 1.1em; cursor: pointer; }
         
-        /* Títulos de Pasos (Ruta Visual Clara) */
-        .step-label { font-size: 0.9em; color: #ffb300; text-transform: uppercase; font-weight: bold; margin-bottom: 10px; text-align: center; background: #333; padding: 5px; border-radius: 4px;}
+        .step-label { font-size: 0.9em; color: #ffb300; text-transform: uppercase; font-weight: bold; margin-bottom: 8px; text-align: center; background: #333; padding: 5px; border-radius: 4px;}
         
-        /* Botonera de Equipos (Paso 1) */
-        .team-row { display: flex; gap: 10px; margin-bottom: 15px; }
-        .btn-team { flex: 1; padding: 15px; font-size: 1.2em; font-weight: bold; border-radius: 8px; border: 2px solid #444; background: #2c2c2c; color: #ccc; cursor: pointer; transition: 0.2s;}
+        /* Botoneras */
+        .btn-row { display: flex; gap: 8px; margin-bottom: 5px; }
+        .btn-option { flex: 1; padding: 12px; font-size: 1em; font-weight: bold; border-radius: 8px; border: 2px solid #444; background: #2c2c2c; color: #ccc; cursor: pointer; transition: 0.2s;}
+        
+        /* Colores Activos */
         #Eq-LOC.active { background: #1565c0; color: #fff; border-color: #64b5f6; }
         #Eq-VIS.active { background: #c62828; color: #fff; border-color: #ef5350; }
+        
+        #Fase-Pos.active { background: #6a1b9a; color: #fff; border-color: #ab47bc; }
+        #Fase-Tra.active { background: #00695c; color: #fff; border-color: #26a69a; }
+        #Fase-Pen.active { background: #f57f17; color: #fff; border-color: #ffee58; }
 
-        /* Botonera de Resultados (Paso 3) */
+        /* Resultados */
         .action-box { background: #1e1e1e; padding: 10px; border-radius: 8px; border: 1px solid #333; }
         .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
-        .btn-result { padding: 20px 10px; font-size: 1.2em; font-weight: bold; border: none; border-radius: 8px; color: white; cursor: pointer; }
+        .btn-result { padding: 15px 10px; font-size: 1.2em; font-weight: bold; border: none; border-radius: 8px; color: white; cursor: pointer; }
         .btn-result:active { opacity: 0.7; transform: scale(0.98); }
         .bg-gol { background: #2e7d32; }
         .bg-parada { background: #ef6c00; }
         .bg-fallo { background: #546e7a; }
         .bg-perdida { background: #b71c1c; }
 
-        /* Columna Derecha: Canvases (Paso 2) */
         .canvas-box { display: flex; flex-direction: column; align-items: center; justify-content: center; background: #222; border-radius: 8px; padding: 10px; flex-grow: 1; }
-        canvas { 
-            width: 100%; max-width: 320px; height: auto; 
-            background: #000; border-radius: 4px; display: block; 
-            cursor: crosshair; touch-action: none; /* Bloquea el zoom en Chrome iOS */
-        }
+        canvas { width: 100%; max-width: 320px; height: auto; background: #000; border-radius: 4px; display: block; cursor: crosshair; touch-action: none; }
         .coord-text { font-size: 0.8em; color: #aaa; margin-top: 6px; font-family: monospace; }
         
-        /* Tabla */
         .table-container { margin-top: 15px; max-height: 180px; overflow-y: auto; border: 1px solid #333; border-radius: 8px; }
         table { width: 100%; font-size: 0.7em; border-collapse: collapse; background: #1e1e1e; }
         th, td { border: 1px solid #444; padding: 6px; text-align: center; }
@@ -62,10 +58,8 @@
 </head>
 <body>
     <div class="main-layout">
-        <!-- COLUMNA IZQUIERDA: EQUIPO Y RESULTADO -->
         <div class="left-col">
             <div>
-                <!-- Header y Reloj -->
                 <div class="header-container">
                     <div class="score-box"><input type="text" id="nameLOC" value="LOC" class="team-input"> : <span id="scoreLOC">0</span></div>
                     <div class="score-box"><input type="text" id="nameVIS" value="VIS" class="team-input"> : <span id="scoreVIS">0</span></div>
@@ -80,51 +74,58 @@
                     </div>
                 </div>
                 
-                <!-- PASO 1: EQUIPO -->
-                <div class="step-label">1. ¿Quién ataca? (Selecciona Equipo)</div>
-                <div class="team-row">
-                    <button class="btn-team" onclick="setEquipo('LOC')" id="Eq-LOC">LOCAL</button>
-                    <button class="btn-team" onclick="setEquipo('VIS')" id="Eq-VIS">VISITANTE</button>
+                <!-- PASO 1 -->
+                <div class="step-label">1. ¿Quién ataca?</div>
+                <div class="btn-row">
+                    <button class="btn-option" onclick="setEquipo('LOC')" id="Eq-LOC">LOCAL</button>
+                    <button class="btn-option" onclick="setEquipo('VIS')" id="Eq-VIS">VISITANTE</button>
+                </div>
+                
+                <!-- PASO 2 (NUEVO) -->
+                <div class="step-label">2. Fase / Tipo</div>
+                <div class="btn-row">
+                    <button class="btn-option" onclick="setFase('Posicional')" id="Fase-Pos">POSICIONAL</button>
+                    <button class="btn-option" onclick="setFase('Transición')" id="Fase-Tra">TRANSICIÓN</button>
+                    <button class="btn-option" onclick="setFase('Penal')" id="Fase-Pen">PENAL</button>
                 </div>
             </div>
             
-            <!-- PASO 3: RESULTADO (Empujado hacia abajo para igualar columnas) -->
+            <!-- PASO 4 -->
             <div class="action-box">
-                <div class="step-label">3. ¿Qué pasó? (Guarda Automáticamente)</div>
+                <div class="step-label">4. ¿Qué pasó? (Guarda Automáticamente)</div>
                 <div class="action-grid">
                     <button class="btn-result bg-gol" onclick="registrarJugada('Gol')">GOL</button>
                     <button class="btn-result bg-parada" onclick="registrarJugada('Parada')">PARADA</button>
                     <button class="btn-result bg-fallo" onclick="registrarJugada('Fallo')">FALLO (Fuera)</button>
                     <button class="btn-result bg-perdida" onclick="registrarJugada('Pérdida')">PÉRDIDA</button>
                 </div>
-                <button class="btn-timer" onclick="resetAll()" style="width: 100%; background: #424242; font-size: 0.9em; padding: 12px;">🧹 Cancelar Acción / Limpiar</button>
+                <button class="btn-timer" onclick="resetAll()" style="width: 100%; background: #424242; font-size: 0.9em; padding: 8px;">🧹 Cancelar Acción / Limpiar</button>
             </div>
         </div>
 
-        <!-- COLUMNA DERECHA: CANVASES (PASO 2) -->
+        <!-- COLUMNA DERECHA: CANVASES (PASO 3) -->
         <div class="right-col">
-            <div class="step-label">2. ¿Dónde? (Toca Cancha y/o Portería)</div>
+            <div class="step-label">3. ¿Dónde? (Toca Cancha y/o Portería)</div>
             
             <div class="canvas-box">
-                <div style="font-size: 0.8em; color:#ccc; margin-bottom:4px;">Cancha (Origen del Tiro / Pérdida)</div>
+                <div style="font-size: 0.8em; color:#ccc; margin-bottom:4px;">Cancha (Origen)</div>
                 <canvas id="cancha" width="300" height="300"></canvas>
                 <div id="c-text" class="coord-text">Lado: N/A</div>
             </div>
 
             <div class="canvas-box">
-                <div style="font-size: 0.8em; color:#ccc; margin-bottom:4px;">Portería (Solo si va a puerta)</div>
+                <div style="font-size: 0.8em; color:#ccc; margin-bottom:4px;">Portería (Destino)</div>
                 <canvas id="porteria" width="300" height="150"></canvas>
                 <div id="z-text" class="coord-text">Zona: N/A</div>
             </div>
         </div>
     </div>
 
-    <!-- TABLA DE LOG -->
     <div class="table-container">
         <table id="log">
             <thead>
                 <tr>
-                    <th>Equipo</th><th>Resultado</th><th>Tiempo</th><th>Periodo</th><th>Lado</th><th>Coord Lado</th><th>Zona</th><th>Coord Porteria</th>
+                    <th>Equipo</th><th>Fase</th><th>Resultado</th><th>Tiempo</th><th>Periodo</th><th>Lado</th><th>Coord Lado</th><th>Zona</th><th>Coord Porteria</th>
                 </tr>
             </thead>
             <tbody></tbody>
@@ -134,17 +135,15 @@
     <button class="btn-export" onclick="exportCSV()">📦 EXPORTAR CSV (Nativo)</button>
 
     <script>
-        // VARIABLES GLOBALES
         let ms = 0, run = false, periodo = "1T";
         let score = {LOC: 0, VIS: 0}; 
-        let state = {Eq: null, Lado: '', CX: null, CY: null, Zona: '', PX: null, PY: null};
+        let state = {Eq: null, Fase: null, Lado: '', CX: null, CY: null, Zona: '', PX: null, PY: null};
         
         const pCanvas = document.getElementById('porteria');
         const cCanvas = document.getElementById('cancha');
         const pCtx = pCanvas.getContext('2d');
         const cCtx = cCanvas.getContext('2d');
         
-        // CORRECCIÓN 1: Cargar imágenes limpiamente sin fallos de renderizado
         const pImg = new Image(); 
         pImg.onload = () => pCtx.drawImage(pImg, 0, 0, pCanvas.width, pCanvas.height);
         pImg.src = 'NS_Goal_handball.png';
@@ -154,12 +153,10 @@
         cImg.src = 'NS_ui_Balonmano_BL_V_T.jpg';
         
         window.onload = () => {
-            // Sincronizar nombres de botones con inputs
             document.getElementById('nameLOC').addEventListener('input', (e) => document.getElementById('Eq-LOC').innerText = e.target.value || 'LOCAL');
             document.getElementById('nameVIS').addEventListener('input', (e) => document.getElementById('Eq-VIS').innerText = e.target.value || 'VISITANTE');
         };
 
-        // CRONÓMETRO
         function controlTimer(a) { 
             if(a === 'start') run = true; 
             else if(a === 'pause') run = false; 
@@ -176,8 +173,7 @@
             } 
         }, 10);
 
-        // CAPTURA DE COORDENADAS: CANCHA
-        cCanvas.addEventListener('pointerdown', (e) => { // Usamos pointerdown en lugar de click para móviles
+        cCanvas.addEventListener('pointerdown', (e) => { 
             const r = cCanvas.getBoundingClientRect();
             state.CX = Math.round(((e.clientX - r.left) / r.width) * 100);
             state.CY = Math.round(((e.clientY - r.top) / r.height) * 100);
@@ -190,7 +186,6 @@
             cCtx.beginPath(); cCtx.arc((state.CX/100)*cCanvas.width, (state.CY/100)*cCanvas.height, 8, 0, Math.PI*2); cCtx.fill();
         });
 
-        // CAPTURA DE COORDENADAS: PORTERÍA
         pCanvas.addEventListener('pointerdown', (e) => {
             const r = pCanvas.getBoundingClientRect();
             state.PX = Math.round(((e.clientX - r.left) / r.width) * 100);
@@ -207,18 +202,28 @@
             pCtx.beginPath(); pCtx.arc((state.PX/100)*pCanvas.width, (state.PY/100)*pCanvas.height, 6, 0, Math.PI*2); pCtx.fill();
         });
 
-        // SELECCIÓN DE EQUIPO
         function setEquipo(eq) {
             state.Eq = eq;
             document.getElementById('Eq-LOC').classList.toggle('active', eq === 'LOC');
             document.getElementById('Eq-VIS').classList.toggle('active', eq === 'VIS');
         }
 
-        // RESETEAR ESTADO
+        function setFase(fase) {
+            state.Fase = fase;
+            document.getElementById('Fase-Pos').classList.toggle('active', fase === 'Posicional');
+            document.getElementById('Fase-Tra').classList.toggle('active', fase === 'Transición');
+            document.getElementById('Fase-Pen').classList.toggle('active', fase === 'Penal');
+        }
+
         function resetAll() {
-            state = {Eq: null, Lado: '', CX: null, CY: null, Zona: '', PX: null, PY: null};
+            state = {Eq: null, Fase: null, Lado: '', CX: null, CY: null, Zona: '', PX: null, PY: null};
+            
             document.getElementById('Eq-LOC').classList.remove('active');
             document.getElementById('Eq-VIS').classList.remove('active');
+            
+            document.getElementById('Fase-Pos').classList.remove('active');
+            document.getElementById('Fase-Tra').classList.remove('active');
+            document.getElementById('Fase-Pen').classList.remove('active');
             
             document.getElementById('c-text').innerText = 'Lado: N/A'; 
             document.getElementById('z-text').innerText = 'Zona: N/A'; 
@@ -227,10 +232,9 @@
             if(cImg.complete) { cCtx.clearRect(0,0,cCanvas.width,cCanvas.height); cCtx.drawImage(cImg,0,0,cCanvas.width,cCanvas.height); }
         }
 
-        // LÓGICA PRINCIPAL: REGISTRAR Y GUARDAR
         function registrarJugada(resultado) { 
-            if (!state.Eq) {
-                alert("⚠️ Por favor, selecciona qué equipo hizo la acción (Paso 1).");
+            if (!state.Eq || !state.Fase) {
+                alert("⚠️ Faltan datos: Selecciona el Equipo y la Fase antes de registrar el resultado.");
                 return;
             }
 
@@ -247,6 +251,7 @@
 
             const row = `<tr>
                 <td>${nombreEq}</td>
+                <td>${state.Fase}</td>
                 <td style="font-weight:bold;">${resultado}</td>
                 <td>${timestamp}</td>
                 <td>${periodo}</td>
@@ -265,9 +270,8 @@
             resetAll();
         }
 
-        // EXPORTACIÓN A CSV
         function exportCSV() { 
-            let csv = "Equipo,Resultado,Tiempo,Periodo,Lado,Coord Lado,Zona,Coord Porteria\n";
+            let csv = "Equipo,Fase,Resultado,Tiempo,Periodo,Lado,Coord Lado,Zona,Coord Porteria\n";
             
             let rows = document.querySelectorAll('#log tbody tr');
             rows.forEach(row => {
