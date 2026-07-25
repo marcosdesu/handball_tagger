@@ -8,7 +8,9 @@
         body { font-family: -apple-system, sans-serif; background: #121212; color: #fff; padding: 12px; margin: 0; box-sizing: border-box; }
         
         .main-layout { display: grid; grid-template-columns: 50% 50%; gap: 15px; align-items: stretch; }
-        .left-col { display: flex; flex-direction: column; justify-content: space-between; gap: 10px; }
+        
+        /* Ajuste de la columna izquierda para quitar los huecos */
+        .left-col { display: flex; flex-direction: column; gap: 12px; }
         .right-col { display: flex; flex-direction: column; gap: 10px; background: #1a1a1a; padding: 12px; border-radius: 8px; border: 1px solid #333; }
         
         .header-container { display: grid; grid-template-columns: 1fr 1fr; align-items: center; background: #1e1e1e; padding: 10px; border-radius: 8px; border: 1px solid #333; }
@@ -22,10 +24,14 @@
         
         .step-label { font-size: 0.9em; color: #ffb300; text-transform: uppercase; font-weight: bold; margin-bottom: 8px; text-align: center; background: #333; padding: 5px; border-radius: 4px;}
         
-        /* Botoneras */
-        .btn-row { display: flex; gap: 8px; margin-bottom: 5px; }
-        .btn-option { flex: 1; padding: 12px; font-size: 1em; font-weight: bold; border-radius: 8px; border: 2px solid #444; background: #2c2c2c; color: #ccc; cursor: pointer; transition: 0.2s;}
+        /* Bloques de Botones más grandes */
+        .btn-row { display: flex; gap: 10px; margin-bottom: 5px; }
+        .btn-option { flex: 1; padding: 18px 10px; font-size: 1.1em; font-weight: bold; border-radius: 8px; border: 2px solid #444; background: #2c2c2c; color: #ccc; cursor: pointer; transition: 0.2s;}
         
+        /* Cuadrícula para la Fase (2 arriba, 1 abajo) */
+        .fase-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .fase-penal { grid-column: span 2; }
+
         /* Colores Activos */
         #Eq-LOC.active { background: #1565c0; color: #fff; border-color: #64b5f6; }
         #Eq-VIS.active { background: #c62828; color: #fff; border-color: #ef5350; }
@@ -35,9 +41,9 @@
         #Fase-Pen.active { background: #f57f17; color: #fff; border-color: #ffee58; }
 
         /* Resultados */
-        .action-box { background: #1e1e1e; padding: 10px; border-radius: 8px; border: 1px solid #333; }
-        .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
-        .btn-result { padding: 15px 10px; font-size: 1.2em; font-weight: bold; border: none; border-radius: 8px; color: white; cursor: pointer; }
+        .action-box { background: #1e1e1e; padding: 12px; border-radius: 8px; border: 1px solid #333; flex-grow: 1; display: flex; flex-direction: column; justify-content: center;}
+        .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; flex-grow: 1;}
+        .btn-result { padding: 15px 10px; font-size: 1.2em; font-weight: bold; border: none; border-radius: 8px; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center;}
         .btn-result:active { opacity: 0.7; transform: scale(0.98); }
         .bg-gol { background: #2e7d32; }
         .bg-parada { background: #ef6c00; }
@@ -81,12 +87,12 @@
                     <button class="btn-option" onclick="setEquipo('VIS')" id="Eq-VIS">VISITANTE</button>
                 </div>
                 
-                <!-- PASO 2 (NUEVO) -->
+                <!-- PASO 2 (ESTRUCTURA DE 2 ARRIBA, 1 ABAJO) -->
                 <div class="step-label">2. Fase / Tipo</div>
-                <div class="btn-row">
+                <div class="fase-grid">
                     <button class="btn-option" onclick="setFase('Posicional')" id="Fase-Pos">POSICIONAL</button>
                     <button class="btn-option" onclick="setFase('Transición')" id="Fase-Tra">TRANSICIÓN</button>
-                    <button class="btn-option" onclick="setFase('Penal')" id="Fase-Pen">PENAL</button>
+                    <button class="btn-option fase-penal" onclick="setFase('Penal')" id="Fase-Pen">PENAL</button>
                 </div>
             </div>
             
@@ -96,10 +102,10 @@
                 <div class="action-grid">
                     <button class="btn-result bg-gol" onclick="registrarJugada('Gol')">GOL</button>
                     <button class="btn-result bg-parada" onclick="registrarJugada('Parada')">PARADA</button>
-                    <button class="btn-result bg-fallo" onclick="registrarJugada('Fallo')">FALLO (Fuera)</button>
+                    <button class="btn-result bg-fallo" onclick="registrarJugada('Fallo')">FALLO</button>
                     <button class="btn-result bg-perdida" onclick="registrarJugada('Pérdida')">PÉRDIDA</button>
                 </div>
-                <button class="btn-timer" onclick="resetAll()" style="width: 100%; background: #424242; font-size: 0.9em; padding: 8px;">🧹 Cancelar Acción / Limpiar</button>
+                <button class="btn-timer" onclick="resetAll()" style="width: 100%; background: #424242; font-size: 0.9em; padding: 10px;">🧹 Cancelar Acción / Limpiar</button>
             </div>
         </div>
 
