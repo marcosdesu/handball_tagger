@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Handball Tagger - Live Pro</title>
+    <title>Handball Tagger</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
     <style>
         body { font-family: -apple-system, sans-serif; background: #121212; color: #fff; padding: 12px; margin: 0; box-sizing: border-box; }
@@ -98,7 +98,7 @@
             
             <!-- PASO 4 -->
             <div class="action-box">
-                <div class="step-label">4. ¿Qué pasó? (Guarda Automáticamente)</div>
+                <div class="step-label">4. ¿Qué pasó?</div>
                 <div class="action-grid">
                     <button class="btn-result bg-gol" onclick="registrarJugada('Gol')">GOL</button>
                     <button class="btn-result bg-parada" onclick="registrarJugada('Parada')">PARADA</button>
@@ -111,16 +111,16 @@
 
         <!-- COLUMNA DERECHA: CANVASES (PASO 3) -->
         <div class="right-col">
-            <div class="step-label">3. ¿Dónde? (Toca Cancha y/o Portería)</div>
+            <div class="step-label">3. ¿Dónde?</div>
             
             <div class="canvas-box">
-                <div style="font-size: 0.8em; color:#ccc; margin-bottom:4px;">Cancha (Origen)</div>
+                <div style="font-size: 0.8em; color:#ccc; margin-bottom:4px;"></div>
                 <canvas id="cancha" width="300" height="300"></canvas>
                 <div id="c-text" class="coord-text">Lado: N/A</div>
             </div>
 
             <div class="canvas-box">
-                <div style="font-size: 0.8em; color:#ccc; margin-bottom:4px;">Portería (Destino)</div>
+                <div style="font-size: 0.8em; color:#ccc; margin-bottom:4px;">Portería</div>
                 <canvas id="porteria" width="300" height="150"></canvas>
                 <div id="z-text" class="coord-text">Zona: N/A</div>
             </div>
@@ -138,7 +138,7 @@
         </table>
     </div>
     
-    <button class="btn-export" onclick="exportCSV()">📦 EXPORTAR CSV (Nativo)</button>
+    <button class="btn-export" onclick="exportCSV()">📦 EXPORTAR CSV</button>
 
     <script>
         let ms = 0, run = false, periodo = "1T";
