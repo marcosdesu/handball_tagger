@@ -2,14 +2,12 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Handball Tagger</title>
+    <title>Handball Tagger - Live Pro</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
     <style>
         body { font-family: -apple-system, sans-serif; background: #121212; color: #fff; padding: 12px; margin: 0; box-sizing: border-box; }
         
         .main-layout { display: grid; grid-template-columns: 50% 50%; gap: 15px; align-items: stretch; }
-        
-        /* Ajuste de la columna izquierda para quitar los huecos */
         .left-col { display: flex; flex-direction: column; gap: 12px; }
         .right-col { display: flex; flex-direction: column; gap: 10px; background: #1a1a1a; padding: 12px; border-radius: 8px; border: 1px solid #333; }
         
@@ -24,15 +22,12 @@
         
         .step-label { font-size: 0.9em; color: #ffb300; text-transform: uppercase; font-weight: bold; margin-bottom: 8px; text-align: center; background: #333; padding: 5px; border-radius: 4px;}
         
-        /* Bloques de Botones más grandes */
         .btn-row { display: flex; gap: 10px; margin-bottom: 5px; }
         .btn-option { flex: 1; padding: 18px 10px; font-size: 1.1em; font-weight: bold; border-radius: 8px; border: 2px solid #444; background: #2c2c2c; color: #ccc; cursor: pointer; transition: 0.2s;}
         
-        /* Cuadrícula para la Fase (2 arriba, 1 abajo) */
         .fase-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .fase-penal { grid-column: span 2; }
 
-        /* Colores Activos */
         #Eq-LOC.active { background: #1565c0; color: #fff; border-color: #64b5f6; }
         #Eq-VIS.active { background: #c62828; color: #fff; border-color: #ef5350; }
         
@@ -40,7 +35,6 @@
         #Fase-Tra.active { background: #00695c; color: #fff; border-color: #26a69a; }
         #Fase-Pen.active { background: #f57f17; color: #fff; border-color: #ffee58; }
 
-        /* Resultados */
         .action-box { background: #1e1e1e; padding: 12px; border-radius: 8px; border: 1px solid #333; flex-grow: 1; display: flex; flex-direction: column; justify-content: center;}
         .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; flex-grow: 1;}
         .btn-result { padding: 15px 10px; font-size: 1.2em; font-weight: bold; border: none; border-radius: 8px; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center;}
@@ -80,47 +74,45 @@
                     </div>
                 </div>
                 
-                <!-- PASO 1 -->
-                <div class="step-label">1. ¿Quién ataca?</div>
+                <div class="step-label">1. ¿Quien ataca?</div>
                 <div class="btn-row">
                     <button class="btn-option" onclick="setEquipo('LOC')" id="Eq-LOC">LOCAL</button>
                     <button class="btn-option" onclick="setEquipo('VIS')" id="Eq-VIS">VISITANTE</button>
                 </div>
                 
-                <!-- PASO 2 (ESTRUCTURA DE 2 ARRIBA, 1 ABAJO) -->
-                <div class="step-label">2. Fase / Tipo</div>
+                <div class="step-label">2. Fase / Tipo (Por defecto: Posicional)</div>
                 <div class="fase-grid">
-                    <button class="btn-option" onclick="setFase('Posicional')" id="Fase-Pos">POSICIONAL</button>
-                    <button class="btn-option" onclick="setFase('Transición')" id="Fase-Tra">TRANSICIÓN</button>
+                    <!-- Textos sin acentos -->
+                    <button class="btn-option active" onclick="setFase('Posicional')" id="Fase-Pos">POSICIONAL</button>
+                    <button class="btn-option" onclick="setFase('Transicion')" id="Fase-Tra">TRANSICION</button>
                     <button class="btn-option fase-penal" onclick="setFase('Penal')" id="Fase-Pen">PENAL</button>
                 </div>
             </div>
             
-            <!-- PASO 4 -->
             <div class="action-box">
-                <div class="step-label">4. ¿Qué pasó?</div>
+                <div class="step-label">4. ¿Que paso? (Guarda Automaticamente)</div>
                 <div class="action-grid">
+                    <!-- Textos sin acentos -->
                     <button class="btn-result bg-gol" onclick="registrarJugada('Gol')">GOL</button>
                     <button class="btn-result bg-parada" onclick="registrarJugada('Parada')">PARADA</button>
                     <button class="btn-result bg-fallo" onclick="registrarJugada('Fallo')">FALLO</button>
-                    <button class="btn-result bg-perdida" onclick="registrarJugada('Pérdida')">PÉRDIDA</button>
+                    <button class="btn-result bg-perdida" onclick="registrarJugada('Perdida')">PERDIDA</button>
                 </div>
-                <button class="btn-timer" onclick="resetAll()" style="width: 100%; background: #424242; font-size: 0.9em; padding: 10px;">🧹 Cancelar Acción / Limpiar</button>
+                <button class="btn-timer" onclick="resetAll()" style="width: 100%; background: #424242; font-size: 0.9em; padding: 10px;">🧹 Cancelar Accion / Limpiar</button>
             </div>
         </div>
 
-        <!-- COLUMNA DERECHA: CANVASES (PASO 3) -->
         <div class="right-col">
-            <div class="step-label">3. ¿Dónde?</div>
+            <div class="step-label">3. ¿Donde? (Toca Cancha y/o Porteria)</div>
             
             <div class="canvas-box">
-                <div style="font-size: 0.8em; color:#ccc; margin-bottom:4px;"></div>
+                <div style="font-size: 0.8em; color:#ccc; margin-bottom:4px;">Cancha (Origen)</div>
                 <canvas id="cancha" width="300" height="300"></canvas>
                 <div id="c-text" class="coord-text">Lado: N/A</div>
             </div>
 
             <div class="canvas-box">
-                <div style="font-size: 0.8em; color:#ccc; margin-bottom:4px;">Portería</div>
+                <div style="font-size: 0.8em; color:#ccc; margin-bottom:4px;">Porteria (Destino)</div>
                 <canvas id="porteria" width="300" height="150"></canvas>
                 <div id="z-text" class="coord-text">Zona: N/A</div>
             </div>
@@ -138,12 +130,19 @@
         </table>
     </div>
     
-    <button class="btn-export" onclick="exportCSV()">📦 EXPORTAR CSV</button>
+    <button class="btn-export" onclick="exportCSV()">📦 EXPORTAR CSV (Nativo)</button>
 
     <script>
+        // ==========================================
+        // 🚀 URL DE MAKE (AQUÍ PEGAREMOS TU WEBHOOK)
+        // ==========================================
+        const URL_MAKE = "AQUI_VA_EL_LINK_DE_MAKE"; 
+
         let ms = 0, run = false, periodo = "1T";
         let score = {LOC: 0, VIS: 0}; 
-        let state = {Eq: null, Fase: null, Lado: '', CX: null, CY: null, Zona: '', PX: null, PY: null};
+        
+        // Fase inicia en 'Posicional' por defecto
+        let state = {Eq: null, Fase: 'Posicional', Lado: '', CX: null, CY: null, Zona: '', PX: null, PY: null};
         
         const pCanvas = document.getElementById('porteria');
         const cCanvas = document.getElementById('cancha');
@@ -161,6 +160,7 @@
         window.onload = () => {
             document.getElementById('nameLOC').addEventListener('input', (e) => document.getElementById('Eq-LOC').innerText = e.target.value || 'LOCAL');
             document.getElementById('nameVIS').addEventListener('input', (e) => document.getElementById('Eq-VIS').innerText = e.target.value || 'VISITANTE');
+            resetAll(); // Asegura que Posicional se marque al cargar
         };
 
         function controlTimer(a) { 
@@ -217,17 +217,19 @@
         function setFase(fase) {
             state.Fase = fase;
             document.getElementById('Fase-Pos').classList.toggle('active', fase === 'Posicional');
-            document.getElementById('Fase-Tra').classList.toggle('active', fase === 'Transición');
+            document.getElementById('Fase-Tra').classList.toggle('active', fase === 'Transicion');
             document.getElementById('Fase-Pen').classList.toggle('active', fase === 'Penal');
         }
 
         function resetAll() {
-            state = {Eq: null, Fase: null, Lado: '', CX: null, CY: null, Zona: '', PX: null, PY: null};
+            // Posicional siempre por defecto tras registrar
+            state = {Eq: null, Fase: 'Posicional', Lado: '', CX: null, CY: null, Zona: '', PX: null, PY: null};
             
             document.getElementById('Eq-LOC').classList.remove('active');
             document.getElementById('Eq-VIS').classList.remove('active');
             
-            document.getElementById('Fase-Pos').classList.remove('active');
+            // Iluminar Posicional automáticamente
+            document.getElementById('Fase-Pos').classList.add('active');
             document.getElementById('Fase-Tra').classList.remove('active');
             document.getElementById('Fase-Pen').classList.remove('active');
             
@@ -239,8 +241,8 @@
         }
 
         function registrarJugada(resultado) { 
-            if (!state.Eq || !state.Fase) {
-                alert("⚠️ Faltan datos: Selecciona el Equipo y la Fase antes de registrar el resultado.");
+            if (!state.Eq) {
+                alert("⚠️ Selecciona el Equipo antes de registrar el resultado.");
                 return;
             }
 
@@ -255,6 +257,7 @@
             const coordCancha = state.CX !== null ? `${state.CX},${state.CY}` : '';
             const coordPorteria = state.PX !== null ? `${state.PX},${state.PY}` : '';
 
+            // 1. Guardar en la tabla visible
             const row = `<tr>
                 <td>${nombreEq}</td>
                 <td>${state.Fase}</td>
@@ -273,6 +276,29 @@
             const tableContainer = document.querySelector('.table-container');
             tableContainer.scrollTop = tableContainer.scrollHeight;
 
+            // 2. ENVIAR A MAKE (AUTOMÁTICO)
+            if (URL_MAKE !== "AQUI_VA_EL_LINK_DE_MAKE") {
+                const payload = {
+                    equipo: nombreEq,
+                    fase: state.Fase,
+                    resultado: resultado,
+                    tiempo: timestamp,
+                    periodo: periodo,
+                    lado: state.Lado,
+                    coord_cancha: coordCancha,
+                    zona_porteria: state.Zona,
+                    coord_porteria: coordPorteria
+                };
+                
+                // Fetch silencioso
+                fetch(URL_MAKE, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                }).catch(err => console.error("Error al enviar a Make", err));
+            }
+
+            // Limpiar interfaz
             resetAll();
         }
 
