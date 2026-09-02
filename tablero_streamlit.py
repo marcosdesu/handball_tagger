@@ -188,27 +188,24 @@ def plot_porteria(df_filtrado):
     ax.axis('off')
     return fig
 
-def plot_radiografia_perdidas(df_filtrado):
+def plot_radiografia_errores(df_filtrado):
     fig, ax = plt.subplots(figsize=(6, 4))
     fig.patch.set_facecolor('white')
     ax.set_facecolor('#f8f9fa')
     
     if not df_filtrado.empty and 'Detalle' in df_filtrado.columns:
-        df_perdidas = df_filtrado[df_filtrado['Resultado'] == 'Perdida']
-        detalles_validos = df_perdidas['Detalle'].replace('N/A', np.nan).dropna()
-        if not detalles_validos.empty:
-            conteo = detalles_validos.value_counts()
-            conteo.plot(kind='bar', color='#b71c1c', edgecolor='black', ax=ax)
-            ax.set_title('Radiografía de Pérdidas', fontweight='bold', fontsize=12)
-            ax.set_ylabel('Cantidad')
-            ax.grid(axis='y', linestyle='--', alpha=0.7)
-            plt.xticks(rotation=15, ha='right', fontsize=9)
-            for p in ax.patches:
-                ax.annotate(str(p.get_height()), (p.get_x() + p.get_width() / 2., p.get_height()),
-                            ha='center', va='center', xytext=(0, 5), textcoords='offset points', fontweight='bold')
+        df_errores = df_filtrado[df_filtrado['Resultado'].isin(['Perdida', 'Fallo', 'Sancion'])]
+        detalles = df_errores['Detalle'].replace(['N/A', ''], np.nan).dropna()
+        
+        if not detalles.empty:
+            conteo = detalles.value_counts().head(5).sort_values()
+            conteo.plot(kind='barh', color='#b71c1c', edgecolor='black', ax=ax)
+            ax.set_title('Top 5: Causas de Posesión Fallida', fontweight='bold', fontsize=12)
+            ax.set_xlabel('Frecuencia', fontsize=9)
+            ax.grid(axis='x', linestyle='--', alpha=0.7)
             return fig
             
-    ax.text(0.5, 0.5, 'Sin datos registrados', ha='center', va='center', color='gray')
+    ax.text(0.5, 0.5, 'Sin datos de errores registrados', ha='center', va='center', color='gray')
     ax.axis('off')
     return fig
 
@@ -313,58 +310,50 @@ with col_extra:
 st.divider()
 
 # ==========================================
-# 7. ZONA DINÁMICA: MOMENTUM vs HISTÓRICO
+# 7. NIVEL 3: ERROR Y JUGADORAS (Radiografía + Tabla Toggle)
 # ==========================================
-if partido_sel == 'Todos (Histórico)':
-    st.markdown("### 🏆 Clasificación General del Torneo (Estadísticas por Jugador)")
-    st.info("Visualizando el acumulado de todos los partidos registrados.")
+st.markdown("### 🧠 Nivel 3: Toma de Decisiones y Rendimiento")
+col_err, col_tab = st.columns([1, 1.5])
+
+with col_err:
+    fig_errores = plot_radiografia_errores(df)
+    st.pyplot(fig_errores)
+
+with col_tab:
+    vista_tabla = st.radio("Filtro de Tabla:", ["Partido Actual", "Promedio Histórico"], horizontal=True)
     
-    # Filtrar solo acciones donde sí se identificó a un jugador
-    df_stats = df[(df['Jugador'].notna()) & (df['Jugador'] != 'N/A') & (df['Jugador'] != '')]
+    # Elegir qué base de datos usar según el botón
+    df_base = df if vista_tabla == "Partido Actual" else df_vivo
+    df_jugadores = df_base[(df_base['Jugador'].notna()) & (df_base['Jugador'] != 'N/A') & (df_base['Jugador'] != '')]
     
-    if not df_stats.empty:
-        # Calcular Tiros Totales (Gol + Fallo + Parada)
-        df_tiros = df_stats[df_stats['Resultado'].isin(['Gol', 'Fallo', 'Parada'])]
-        tiros = df_tiros.groupby(['Equipo', 'Jugador']).size().reset_index(name='Tiros')
+    if not df_jugadores.empty:
+        # Calcular Goles, Tiros Totales y Pérdidas
+        goles = df_jugadores[df_jugadores['Resultado'] == 'Gol'].groupby('Jugador').size().reset_index(name='Goles')
+        tiros = df_jugadores[df_jugadores['Resultado'].isin(['Gol', 'Fallo', 'Parada'])].groupby('Jugador').size().reset_index(name='Tiros')
+        perdidas = df_jugadores[df_jugadores['Resultado'] == 'Perdida'].groupby('Jugador').size().reset_index(name='Pérdidas')
+        sanciones = df_jugadores[df_jugadores['Resultado'] == 'Sancion'].groupby('Jugador').size().reset_index(name='Sanciones')
         
-        # Calcular Goles
-        goles = df_stats[df_stats['Resultado'] == 'Gol'].groupby(['Equipo', 'Jugador']).size().reset_index(name='Goles')
+        # Unir tabla
+        stats = pd.merge(goles, tiros, on='Jugador', how='outer').fillna(0)
+        stats = pd.merge(stats, perdidas, on='Jugador', how='outer').fillna(0)
+        stats = pd.merge(stats, sanciones, on='Jugador', how='outer').fillna(0)
         
-        # Calcular Pérdidas
-        perdidas = df_stats[df_stats['Resultado'] == 'Perdida'].groupby(['Equipo', 'Jugador']).size().reset_index(name='Pérdidas')
-        
-        # Unir todas las métricas en una sola tabla (Outer join para no perder jugadores)
-        stats = pd.merge(tiros, goles, on=['Equipo', 'Jugador'], how='outer').fillna(0)
-        stats = pd.merge(stats, perdidas, on=['Equipo', 'Jugador'], how='outer').fillna(0)
-        
-        # Calcular Porcentaje de Efectividad
+        if vista_tabla == "Promedio Histórico":
+            total_partidos = df_vivo['Partido'].nunique()
+            if total_partidos > 0:
+                stats[['Goles', 'Tiros', 'Pérdidas', 'Sanciones']] = stats[['Goles', 'Tiros', 'Pérdidas', 'Sanciones']] / total_partidos
+                stats = stats.round(1)
+                
         stats['Efectividad (%)'] = np.where(stats['Tiros'] > 0, round((stats['Goles'] / stats['Tiros']) * 100, 1), 0)
-        
-        # Formatear números enteros
-        stats['Goles'] = stats['Goles'].astype(int)
-        stats['Tiros'] = stats['Tiros'].astype(int)
-        stats['Pérdidas'] = stats['Pérdidas'].astype(int)
-        
-        # Ordenar a las mejores goleadoras primero, y desempatar por efectividad
         stats = stats.sort_values(by=['Goles', 'Efectividad (%)'], ascending=[False, False]).reset_index(drop=True)
         
-        # Mostrar la tabla en Streamlit (Ocupando todo el ancho)
         st.dataframe(
             stats.style.background_gradient(subset=['Efectividad (%)'], cmap='Greens')
-                       .background_gradient(subset=['Pérdidas'], cmap='Reds'),
+                       .background_gradient(subset=['Pérdidas', 'Sanciones'], cmap='Reds'),
             use_container_width=True
         )
     else:
-        st.warning("No hay suficientes datos de jugadores para generar la clasificación.")
-
-else:
-    # SI HAY UN PARTIDO SELECCIONADO, MOSTRAMOS EL MOMENTUM NORMAL
-    st.markdown(f"### 📈 Momentum del Partido: {partido_sel}")
-    if not df.empty:
-        fig_momentum = plot_momentum(df)
-        st.pyplot(fig_momentum)
-    else:
-        st.info("Esperando datos para calcular el Momentum...")
+        st.info("Esperando datos de jugadoras...")
 
 # ==========================================
 # 8. TABLA DE DATOS CRUDOS
