@@ -138,8 +138,11 @@
         // ==========================================
         const URL_MAKE = "https://hook.us2.make.com/1s41v7gvbf3p8tfrqqmip48pesbnqqei"; 
 
-        let ms = 0, run = false, periodo = "1T";
-        let score = {LOC: 0, VIS: 0}; 
+        // Variables de reloj absoluto (Sin desfase)
+        let startTime = 0, elapsedTime = 0;
+        let timerInterval = null;
+        let run = false, periodo = "1T";
+        let score = {LOC: 0, VIS: 0};
         
         // Fase inicia en 'Posicional' por defecto
         let state = {Eq: null, Fase: 'Posicional', Lado: '', CX: null, CY: null, Zona: '', PX: null, PY: null};
@@ -163,21 +166,39 @@
             resetAll(); // Asegura que Posicional se marque al cargar
         };
 
-        function controlTimer(a) { 
-            if(a === 'start') run = true; 
-            else if(a === 'pause') run = false; 
+        function controlTimer(action) { 
+            if (action === 'start' && !run) {
+                run = true;
+                // Calculamos el punto de inicio restando el tiempo que ya haya transcurrido (por si reanudamos tras una pausa)
+                startTime = Date.now() - elapsedTime;
+                // Actualizamos la pantalla frecuentemente, pero el cálculo se basa en la hora real
+                timerInterval = setInterval(updateTimerDisplay, 10);
+            } 
+            else if (action === 'pause' && run) {
+                run = false;
+                clearInterval(timerInterval);
+                // Guardamos el tiempo exacto transcurrido al pausar
+                elapsedTime = Date.now() - startTime;
+            }
         }
+
         function togglePeriodo() { 
             periodo = (periodo === "1T") ? "2T" : "1T"; 
             document.getElementById('btn-periodo').innerText = periodo; 
         }
-        setInterval(() => { 
-            if(run) { 
-                ms++; 
-                let m = Math.floor((ms%360000)/6000), s = Math.floor((ms%6000)/100), c = ms%100; 
-                document.getElementById('timer').innerText = [m,s].map(v=>v.toString().padStart(2,'0')).join(':')+'.'+c.toString().padStart(2,'0'); 
-            } 
-        }, 10);
+
+        function updateTimerDisplay() {
+            // Diferencia exacta entre este milisegundo y el momento en que se dio "start"
+            elapsedTime = Date.now() - startTime;
+            
+            let totalSeconds = Math.floor(elapsedTime / 1000);
+            let m = Math.floor(totalSeconds / 60);
+            let s = totalSeconds % 60;
+            let c = Math.floor((elapsedTime % 1000) / 10); 
+            
+            document.getElementById('timer').innerText = 
+                [m, s].map(v => v.toString().padStart(2, '0')).join(':') + '.' + c.toString().padStart(2, '0');
+        }
 
         cCanvas.addEventListener('pointerdown', (e) => { 
             const r = cCanvas.getBoundingClientRect();
