@@ -364,7 +364,7 @@
         }
 
         // ==========================================
-        // LÓGICA DEL POP-UP SECUENCIAL
+        // LÓGICA DEL POP-UP SECUENCIAL Y DOBLE (PARADAS)
         // ==========================================
         function iniciarRegistro(resultado) { 
             if (!state.Eq) {
@@ -372,27 +372,18 @@
                 return;
             }
             pendingResult = resultado;
+            state.Jugador = ''; // Limpiamos el jugador para iniciar el flujo limpio
 
             // Restablecer vistas del modal
             document.getElementById('view-jerseys').style.display = 'block';
             document.getElementById('view-details').style.display = 'none';
 
-            let nums = [];
-            let titulo = "";
-            let color = "";
-
-            if (resultado === 'Parada') {
-                let eqDefensor = (state.Eq === 'LOC') ? 'vis' : 'loc';
-                let inputGk = document.getElementById(eqDefensor + '-gk').value;
-                nums = inputGk.split(',').map(n => n.trim()).filter(n => n !== '');
-                titulo = "🛡️ ¿Qué Portero atajó?";
-                color = (eqDefensor === 'loc') ? '#1565c0' : '#c62828';
-            } else {
-                let inputField = document.getElementById(state.Eq.toLowerCase() + '-field').value;
-                nums = inputField.split(',').map(n => n.trim()).filter(n => n !== '');
-                titulo = "🎯 ¿Quién tiró / la perdió?";
-                color = (state.Eq === 'LOC') ? '#1565c0' : '#c62828';
-            }
+            // PASO 1 (Para todos): Siempre preguntamos primero por el jugador de campo que ataca
+            let inputField = document.getElementById(state.Eq.toLowerCase() + '-field').value;
+            let nums = inputField.split(',').map(n => n.trim()).filter(n => n !== '');
+            
+            let titulo = "🎯 ¿Quién tiró / la perdió?";
+            let color = (state.Eq === 'LOC') ? '#1565c0' : '#c62828';
 
             document.getElementById('modal-title-text').innerText = titulo;
             let container = document.getElementById('jersey-container');
@@ -410,15 +401,46 @@
             document.getElementById('jerseyModal').style.display = 'flex';
         }
 
-        function handleJerseySelection(jugador) {
-            state.Jugador = jugador;
+        function handleJerseySelection(jugadorSeleccionado) {
+            // LÓGICA ESPECIAL PARA PARADA (Doble paso)
+            if (pendingResult === 'Parada') {
+                if (state.Jugador === '') {
+                    // Paso 1: Acaban de seleccionar al Tirador
+                    state.Jugador = jugadorSeleccionado;
+                    
+                    // Preparamos el Paso 2: Mostrar Porteros del equipo rival
+                    let eqDefensor = (state.Eq === 'LOC') ? 'vis' : 'loc';
+                    let inputGk = document.getElementById(eqDefensor + '-gk').value;
+                    let nums = inputGk.split(',').map(n => n.trim()).filter(n => n !== '');
+                    
+                    document.getElementById('modal-title-text').innerText = "🛡️ ¿Qué Portero atajó?";
+                    let color = (eqDefensor === 'loc') ? '#1565c0' : '#c62828';
+                    
+                    let container = document.getElementById('jersey-container');
+                    container.innerHTML = ''; 
+                    nums.forEach(num => {
+                        let btn = document.createElement('button');
+                        btn.className = 'jersey-btn';
+                        btn.innerText = num;
+                        btn.style.borderColor = color;
+                        btn.onclick = () => handleJerseySelection(num); // Se llama a sí misma para el Paso 2
+                    });
+                    return; // Pausamos aquí esperando que toquen al portero
+                } else {
+                    // Paso 2: Ya teníamos al tirador, ahora seleccionaron al Portero
+                    let detallePortero = (jugadorSeleccionado === 'N/A') ? 'N/A' : 'Portero: ' + jugadorSeleccionado;
+                    finalizarRegistroCompleto(detallePortero);
+                    return;
+                }
+            }
 
-            // Si es Pérdida, pasamos a la segunda vista del Modal (Detalles)
+            // LÓGICA NORMAL (Gol, Fallo, Pérdida)
+            state.Jugador = jugadorSeleccionado;
+
             if (pendingResult === 'Perdida') {
                 document.getElementById('view-jerseys').style.display = 'none';
                 document.getElementById('view-details').style.display = 'block';
             } else {
-                // Si es Gol, Parada o Fallo, terminamos directamente
                 finalizarRegistroCompleto('N/A');
             }
         }
