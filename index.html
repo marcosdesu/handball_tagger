@@ -7,7 +7,6 @@
     <style>
         body { font-family: -apple-system, sans-serif; background: #121212; color: #fff; padding: 12px; margin: 0; box-sizing: border-box; }
         
-        /* Acordeones */
         .accordion { background-color: #1e1e1e; color: #eee; cursor: pointer; padding: 12px; width: 100%; text-align: left; border: 1px solid #333; outline: none; transition: 0.4s; border-radius: 8px; font-weight: bold; margin-bottom: 5px; font-size: 1.1em;}
         .accordion.active, .accordion:hover { background-color: #2c2c2c; }
         .accordion:after { content: '\002B'; font-weight: bold; float: right; }
@@ -18,17 +17,14 @@
         .config-box { background: #1a1a1a; padding: 10px; border-radius: 8px; border: 1px solid #333;}
         .config-box label { font-size: 0.85em; color: #aaa; display: block; margin-bottom: 5px; }
         .config-box input { width: 100%; box-sizing: border-box; background: #2c2c2c; border: 1px solid #555; color: white; padding: 8px; border-radius: 4px; margin-bottom: 10px;}
-        .config-full { grid-column: span 2; background: #222; border: 1px solid #ffb300; }
         .input-highlight { border: 1px solid #ffb300 !important; font-weight: bold;}
 
-        /* Layout Principal */
         .main-layout { display: grid; grid-template-columns: 50% 50%; gap: 15px; align-items: stretch; }
         .left-col { display: flex; flex-direction: column; gap: 12px; }
         .right-col { display: flex; flex-direction: column; gap: 10px; background: #1a1a1a; padding: 12px; border-radius: 8px; border: 1px solid #333; }
         
         .header-container { display: grid; grid-template-columns: 1fr 1fr; align-items: center; background: #1e1e1e; padding: 10px; border-radius: 8px; border: 1px solid #333; }
         .score-box { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 1.4em; font-weight: bold; }
-        /* El nombre del equipo ahora es un texto simple, no un input */
         .team-display { color: #fff; font-size: 1em; text-align: center; text-transform: uppercase; }
         
         .timer-box { background: #1e1e1e; padding: 10px; border-radius: 8px; border: 1px solid #2d2d2d; text-align: center; }
@@ -46,7 +42,6 @@
 
         #Eq-LOC.active { background: #1565c0; color: #fff; border-color: #64b5f6; }
         #Eq-VIS.active { background: #c62828; color: #fff; border-color: #ef5350; }
-        
         #Fase-Pos.active { background: #6a1b9a; color: #fff; border-color: #ab47bc; }
         #Fase-Tra.active { background: #00695c; color: #fff; border-color: #26a69a; }
         #Fase-Pen.active { background: #f57f17; color: #fff; border-color: #ffee58; }
@@ -60,7 +55,6 @@
         .bg-parada { background: #ef6c00; }
         .bg-fallo { background: #546e7a; }
         .bg-perdida { background: #b71c1c; }
-        /* NUEVO BOTÓN DE SANCIÓN (Ocupa las dos columnas) */
         .btn-sancion { grid-column: span 2; background: #fbc02d; color: #000; padding: 12px; font-size: 1.2em; border: 2px solid #f57f17; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: -5px; margin-bottom: 10px;}
         .btn-sancion:active { transform: scale(0.98); opacity: 0.8;}
 
@@ -68,7 +62,6 @@
         canvas { width: 100%; max-width: 320px; height: auto; background: #000; border-radius: 4px; display: block; cursor: crosshair; touch-action: none; }
         .coord-text { font-size: 0.8em; color: #aaa; margin-top: 6px; font-family: monospace; }
         
-        /* Modal Pop-up */
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.85); align-items: center; justify-content: center; }
         .modal-content { background-color: #1e1e1e; padding: 20px; border-radius: 12px; border: 1px solid #444; width: 90%; max-width: 500px; text-align: center; }
         .modal-title { font-size: 1.5em; font-weight: bold; margin-bottom: 15px; color: #ffb300; }
@@ -89,32 +82,26 @@
 </head>
 <body>
     
-    <!-- ACORDEÓN 1: CONFIGURACIÓN CENTRALIZADA -->
-    <button class="accordion">⚙️ Configurar Partido y Equipos</button>
+    <button class="accordion">⚙️ Configurar Equipos</button>
     <div class="panel">
         <div class="config-grid">
-            <div class="config-box config-full">
-                <label style="color: #ffb300; font-weight: bold; font-size: 1em;">🏆 Nombre del Partido</label>
-                <input type="text" id="nombre-partido" placeholder="Ej. J1 vs Brasil" class="input-highlight">
-            </div>
-            
+            <!-- La caja del Nombre del Partido fue eliminada. Todo es automático. -->
             <div class="config-box">
                 <div style="color: #64b5f6; font-weight: bold; margin-bottom: 10px;">EQUIPO LOCAL</div>
-                <!-- AL ESCRIBIR AQUÍ, SE ACTUALIZA TODO -->
                 <label>Nombre Corto (Ej. MEX)</label>
                 <input type="text" id="input-loc-name" value="LOC" oninput="syncNombres()" class="input-highlight">
-                <label>Jugadores de Campo (Separados por coma)</label>
+                <label>Jugadores (Coma)</label>
                 <input type="text" id="loc-field" value="2, 4, 7, 9, 10, 14, 18, 22">
-                <label>Porteros (Separados por coma)</label>
+                <label>Porteros (Coma)</label>
                 <input type="text" id="loc-gk" value="1, 12, 16">
             </div>
             <div class="config-box">
                 <div style="color: #ef5350; font-weight: bold; margin-bottom: 10px;">EQUIPO VISITANTE</div>
                 <label>Nombre Corto (Ej. BRA)</label>
                 <input type="text" id="input-vis-name" value="VIS" oninput="syncNombres()" class="input-highlight">
-                <label>Jugadores de Campo (Separados por coma)</label>
+                <label>Jugadores (Coma)</label>
                 <input type="text" id="vis-field" value="3, 5, 8, 11, 13, 15, 19, 21">
-                <label>Porteros (Separados por coma)</label>
+                <label>Porteros (Coma)</label>
                 <input type="text" id="vis-gk" value="1, 12">
             </div>
         </div>
@@ -125,7 +112,6 @@
         <div class="left-col">
             <div>
                 <div class="header-container">
-                    <!-- MARCADOR LIMPIO (Ya no se puede escribir aquí) -->
                     <div class="score-box"><span id="display-loc-name" class="team-display">LOC</span> : <span id="scoreLOC">0</span></div>
                     <div class="score-box"><span id="display-vis-name" class="team-display">VIS</span> : <span id="scoreVIS">0</span></div>
                 </div>
@@ -161,9 +147,7 @@
                     <button class="btn-result bg-fallo" onclick="iniciarRegistro('Fallo')">FALLO</button>
                     <button class="btn-result bg-perdida" onclick="iniciarRegistro('Perdida')">PERDIDA</button>
                 </div>
-                <!-- BOTÓN ANCHO DE SANCIÓN -->
                 <button class="btn-sancion" onclick="iniciarSancion()">🛑 SANCIÓN DISCIPLINARIA</button>
-                
                 <button class="btn-timer" onclick="resetAll()" style="width: 100%; background: #424242; font-size: 0.9em; padding: 10px;">🧹 Cancelar Accion / Limpiar</button>
             </div>
         </div>
@@ -183,16 +167,12 @@
         </div>
     </div>
 
-    <!-- ACORDEÓN 2: REGISTRO RECIENTE -->
+    <!-- TABLA DE HISTORIAL -->
     <button class="accordion" style="margin-top: 15px;">📋 Últimas acciones registradas</button>
     <div class="panel">
         <div class="table-container">
             <table id="log">
-                <thead>
-                    <tr>
-                        <th>Partido</th><th>Tiempo</th><th>Equipo</th><th>Jugador</th><th>Fase</th><th>Resultado</th><th>Detalle</th>
-                    </tr>
-                </thead>
+                <thead><tr><th>Partido</th><th>Tiempo</th><th>Equipo</th><th>Jugador</th><th>Fase</th><th>Resultado</th><th>Detalle</th></tr></thead>
                 <tbody></tbody>
             </table>
         </div>
@@ -202,7 +182,6 @@
     <div id="jerseyModal" class="modal">
         <div class="modal-content">
             
-            <!-- VISTA A: SELECCIÓN DE EQUIPO (Para Sanciones) -->
             <div id="view-sancion-equipo" style="display: none;">
                 <div class="modal-title">⚖️ ¿A qué equipo sancionaron?</div>
                 <div class="details-grid">
@@ -212,45 +191,53 @@
                 <button class="btn-omit" style="background:#555;" onclick="cerrarModal()">Cancelar</button>
             </div>
 
-            <!-- VISTA B: CAMISETAS -->
             <div id="view-jerseys" style="display: none;">
                 <div class="modal-title" id="modal-title-text">¿Quién fue?</div>
                 <div id="jersey-container" class="jersey-grid"></div>
                 <button class="btn-omit" onclick="handleJerseySelection('N/A')">No vi el número / Omitir</button>
             </div>
             
-            <!-- VISTA C: DETALLE PERDIDA -->
             <div id="view-details-perdida" style="display: none;">
                 <div class="modal-title">⚠️ ¿Cómo la perdió?</div>
                 <div class="details-grid">
-                    <button class="btn-detail" onclick="finalizarRegistroCompleto('Mal Pase')">Pase / Passe</button>
-                    <button class="btn-detail" onclick="finalizarRegistroCompleto('Violación (Pasos/Dobles)')">Caminata o Doble</button>
-                    <button class="btn-detail" onclick="finalizarRegistroCompleto('Falta Ofensiva')">Ataque / Attaque</button>
-                    <button class="btn-detail" onclick="finalizarRegistroCompleto('Raya / Zone')">Raya / Zone</button>
+                    <!-- Los botones ahora pasan por "avanzarASancion" en lugar de cerrar directo -->
+                    <button class="btn-detail" onclick="avanzarASancion('Pase / Passe')">Pase / Passe</button>
+                    <button class="btn-detail" onclick="avanzarASancion('Caminata o Doble')">Caminata o Doble</button>
+                    <button class="btn-detail" onclick="avanzarASancion('Falta Ofensiva')">Ataque / Attaque</button>
+                    <button class="btn-detail" onclick="avanzarASancion('Raya / Zone')">Raya / Zone</button>
                 </div>
-                <button class="btn-omit" style="background:#555;" onclick="finalizarRegistroCompleto('N/A')">Omitir detalle</button>
+                <button class="btn-omit" style="background:#555;" onclick="avanzarASancion('N/A')">Omitir detalle</button>
             </div>
 
-            <!-- VISTA D: DETALLE FALLO -->
             <div id="view-details-fallo" style="display: none;">
                 <div class="modal-title">📉 Detalle del Fallo</div>
                 <div class="details-grid" style="grid-template-columns: 1fr 1fr 1fr;">
-                    <button class="btn-detail" onclick="finalizarRegistroCompleto('Poste / Poteau')">Poste</button>
-                    <button class="btn-detail" onclick="finalizarRegistroCompleto('Fuera / Dehors')">Fuera</button>
-                    <button class="btn-detail" onclick="finalizarRegistroCompleto('Bloqueo / Bloquer')">Bloqueado</button>
+                    <button class="btn-detail" onclick="avanzarASancion('Poste')">Poste</button>
+                    <button class="btn-detail" onclick="avanzarASancion('Fuera')">Fuera</button>
+                    <button class="btn-detail" onclick="avanzarASancion('Bloqueado')">Bloqueado</button>
                 </div>
-                <button class="btn-omit" style="background:#555;" onclick="finalizarRegistroCompleto('N/A')">Omitir detalle</button>
+                <button class="btn-omit" style="background:#555;" onclick="avanzarASancion('N/A')">Omitir detalle</button>
             </div>
 
-            <!-- VISTA E: DETALLE SANCION -->
             <div id="view-details-sancion" style="display: none;">
-                <div class="modal-title">🛑 ¿Qué castigo?</div>
+                <div class="modal-title">🛑 ¿Qué castigo? (Botón Independiente)</div>
                 <div class="details-grid" style="grid-template-columns: 1fr 1fr 1fr;">
                     <button class="btn-detail" style="background:#fbc02d; color:black;" onclick="finalizarSancion('Amarilla (A)')">Amarilla</button>
                     <button class="btn-detail" style="border-color:#fff;" onclick="finalizarSancion('2 Minutos')">2 Minutos</button>
                     <button class="btn-detail" style="background:#d32f2f;" onclick="finalizarSancion('Roja (D)')">Roja</button>
                 </div>
                 <button class="btn-omit" style="background:#555;" onclick="cerrarModal()">Cancelar</button>
+            </div>
+
+            <!-- VISTA NUEVA: SANCIÓN EN CADENA (Se muestra al final de Pérdida/Fallo) -->
+            <div id="view-sancion-extra" style="display: none;">
+                <div class="modal-title">🛑 ¿Hubo sanción extra en esta jugada?</div>
+                <div class="details-grid" style="grid-template-columns: 1fr 1fr 1fr 1fr;">
+                    <button class="btn-detail" style="border-color:#888; color:#ccc;" onclick="finalizarConSancionExtra('')">Ninguna</button>
+                    <button class="btn-detail" style="background:#fbc02d; color:black;" onclick="finalizarConSancionExtra('Amarilla')">Amarilla</button>
+                    <button class="btn-detail" style="border-color:#fff;" onclick="finalizarConSancionExtra('2 Minutos')">2 Min</button>
+                    <button class="btn-detail" style="background:#d32f2f;" onclick="finalizarConSancionExtra('Roja')">Roja</button>
+                </div>
             </div>
 
         </div>
@@ -262,7 +249,7 @@
         let startTime = 0, elapsedTime = 0, timerInterval = null, run = false, periodo = "1T";
         let score = {LOC: 0, VIS: 0}; 
         let state = {Eq: null, Jugador: '', Fase: 'Posicional', Lado: '', CX: null, CY: null, Zona: '', PX: null, PY: null, Detalle: ''};
-        let pendingResult = "", pasoModal = 1, tempPortero = "", eqSancion = ""; 
+        let pendingResult = "", pasoModal = 1, tempPortero = "", eqSancion = "", tempDetalle = ""; 
 
         const pCanvas = document.getElementById('porteria');
         const cCanvas = document.getElementById('cancha');
@@ -273,17 +260,13 @@
         
         window.onload = () => { syncNombres(); resetAll(); };
 
-        // 💡 NUEVA FUNCIÓN: Sincroniza nombres de la configuración al marcador
         function syncNombres() {
             let locName = document.getElementById('input-loc-name').value || "LOC";
             let visName = document.getElementById('input-vis-name').value || "VIS";
-            
             document.getElementById('display-loc-name').innerText = locName;
             document.getElementById('display-vis-name').innerText = visName;
-            
             document.getElementById('Eq-LOC').innerText = locName;
             document.getElementById('Eq-VIS').innerText = visName;
-            
             document.getElementById('btn-sancion-loc').innerText = locName;
             document.getElementById('btn-sancion-vis').innerText = visName;
         }
@@ -293,8 +276,8 @@
             acc[i].addEventListener("click", function() {
                 this.classList.toggle("active");
                 var panel = this.nextElementSibling;
-                if (panel.style.maxHeight) { panel.style.maxHeight = null; } 
-                else { panel.style.maxHeight = panel.scrollHeight + "px"; } 
+                if (panel.style.maxHeight) panel.style.maxHeight = null; 
+                else panel.style.maxHeight = panel.scrollHeight + "px"; 
             });
         }
 
@@ -375,11 +358,10 @@
             document.getElementById('view-details-perdida').style.display = 'none';
             document.getElementById('view-details-fallo').style.display = 'none';
             document.getElementById('view-details-sancion').style.display = 'none';
+            document.getElementById('view-sancion-extra').style.display = 'none';
         }
 
-        function cerrarModal() {
-            document.getElementById('jerseyModal').style.display = 'none';
-        }
+        function cerrarModal() { document.getElementById('jerseyModal').style.display = 'none'; }
 
         // =====================================
         // FLUJO 1: ACCIONES DE JUEGO (Gol, Parada, Fallo, Perdida)
@@ -409,9 +391,7 @@
             let nums = csvNumbers.split(',').map(n => n.trim()).filter(n => n !== '');
             nums.forEach(num => {
                 let btn = document.createElement('button');
-                btn.className = 'jersey-btn';
-                btn.innerText = num;
-                btn.style.borderColor = color;
+                btn.className = 'jersey-btn'; btn.innerText = num; btn.style.borderColor = color;
                 btn.onclick = () => handleJerseySelection(num);
                 container.appendChild(btn);
             });
@@ -441,8 +421,21 @@
             else { finalizarRegistroCompleto('N/A'); }
         }
 
+        // Lógica de "Sanción en Cadena"
+        function avanzarASancion(detalle) {
+            if (detalle === 'N/A') { finalizarRegistroCompleto('N/A'); return; }
+            tempDetalle = detalle;
+            ocultarVistasModal();
+            document.getElementById('view-sancion-extra').style.display = 'block';
+        }
+
+        function finalizarConSancionExtra(castigo) {
+            if (castigo !== '') { finalizarRegistroCompleto(tempDetalle + " + " + castigo); } 
+            else { finalizarRegistroCompleto(tempDetalle); }
+        }
+
         // =====================================
-        // FLUJO 2: SANCIONES DISCIPLINARIAS
+        // FLUJO 2: SANCIÓN INDEPENDIENTE
         // =====================================
         function iniciarSancion() {
             pendingResult = "Sancion"; eqSancion = ""; state.Jugador = ""; state.Detalle = "";
@@ -456,15 +449,16 @@
             ocultarVistasModal();
             let inputField = document.getElementById(equipo.toLowerCase() + '-field').value;
             let inputGk = document.getElementById(equipo.toLowerCase() + '-gk').value;
-            let todos = inputField + "," + inputGk; // Mostramos campo y porteros juntos para sancionar
+            let todos = inputField + "," + inputGk; 
             mostrarBotonesCamisetas(todos, `👕 ¿A qué jugador de ${document.getElementById('input-'+equipo.toLowerCase()+'-name').value}?`, (equipo === 'LOC') ? '#1565c0' : '#c62828');
             document.getElementById('view-jerseys').style.display = 'block';
         }
 
         function finalizarSancion(castigo) {
-            state.Eq = eqSancion; // Forzamos el equipo al que se le aplicó el castigo
-            state.Fase = "Juego Detenido";
-            state.CX = null; state.CY = null; state.PX = null; state.PY = null; state.Lado = 'N/A'; state.Zona = 'N/A';
+            state.Eq = eqSancion; 
+            // EL ESCUDO: Anulamos la fase y las coordenadas para que la base de datos quede limpia.
+            state.Fase = "N/A"; state.Lado = 'N/A'; state.Zona = 'N/A';
+            state.CX = null; state.CY = null; state.PX = null; state.PY = null; 
             finalizarRegistroCompleto(castigo);
         }
 
@@ -475,10 +469,12 @@
             cerrarModal(); 
             state.Detalle = detalle;
             
-            let nombrePartido = document.getElementById('nombre-partido').value;
-            if (nombrePartido.trim() === '') nombrePartido = "Sin Nombre";
+            // AUTOMATIZACIÓN DEL NOMBRE DEL PARTIDO
+            let locName = document.getElementById('input-loc-name').value || "LOC";
+            let visName = document.getElementById('input-vis-name').value || "VIS";
+            let nombrePartido = locName + " vs " + visName;
 
-            const nombreEq = (state.Eq === 'LOC') ? document.getElementById('input-loc-name').value : document.getElementById('input-vis-name').value;
+            const nombreEq = (state.Eq === 'LOC') ? locName : visName;
                              
             if (pendingResult === 'Gol') { score[state.Eq]++; document.getElementById('score'+state.Eq).innerText = score[state.Eq]; } 
             
@@ -486,7 +482,6 @@
             const coordCancha = state.CX !== null ? `${state.CX},${state.CY}` : '';
             const coordPorteria = state.PX !== null ? `${state.PX},${state.PY}` : '';
 
-            // Mostrar "Partido" en la tabla visual
             const row = `<tr>
                 <td style="color:#aaa;">${nombrePartido}</td>
                 <td>${timestamp}</td>
@@ -501,7 +496,6 @@
             tbody.insertAdjacentHTML('afterbegin', row); 
             while (tbody.children.length > 3) { tbody.removeChild(tbody.lastChild); }
 
-            // ENVIAR A MAKE 
             if (URL_MAKE !== "AQUI_VA_EL_LINK_DE_MAKE") {
                 const payload = {
                     partido: nombrePartido,
@@ -524,7 +518,6 @@
                     body: JSON.stringify(payload)
                 }).catch(err => console.error("Error al enviar a Make", err));
             }
-
             resetAll();
         }
     </script>
