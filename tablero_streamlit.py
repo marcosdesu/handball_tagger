@@ -49,7 +49,6 @@ def load_data():
         df_temp = df_temp.dropna(how='all')
         return df_temp
     except Exception as e:
-        # 🚨 SE ACTUALIZÓ A 12 COLUMNAS (Incluyendo Partido)
         return pd.DataFrame(columns=['Partido', 'Tiempo', 'Periodo', 'Equipo', 'Jugador', 'Fase', 'Resultado', 'Detalle', 'Lado', 'Coord Lado', 'Zona', 'Coord Porteria'])
 
 df_vivo = load_data()
@@ -60,7 +59,6 @@ df_vivo = load_data()
 st.sidebar.header("Filtros Globales")
 
 if not df_vivo.empty:
-    # 🚨 NUEVO FILTRO MAESTRO DE PARTIDO
     partidos_validos = [str(x) for x in df_vivo['Partido'].dropna().unique() if str(x) not in ['nan', 'N/A', '']]
     lista_partidos = ['Todos (Histórico)'] + partidos_validos
     
@@ -85,9 +83,7 @@ lado_sel = st.sidebar.selectbox("5. Lado de la Cancha", lista_lados)
 
 df = df_vivo.copy()
 if not df.empty:
-    # Aplicar el filtro de partido si no es el Histórico completo
     if partido_sel != 'Todos (Histórico)': df = df[df['Partido'].astype(str) == partido_sel]
-    
     if equipo_sel != 'Todos': df = df[df['Equipo'] == equipo_sel]
     if jugador_sel != 'Todos': df = df[df['Jugador'].astype(str) == jugador_sel]
     if fase_sel != 'Todas': df = df[df['Fase'] == fase_sel]
@@ -118,12 +114,11 @@ else:
 st.divider()
 
 # ==========================================
-# 4. FUNCIONES DE DIBUJO (Sin cambios mayores)
+# 4. FUNCIONES DE DIBUJO
 # ==========================================
 def plot_cancha(df_filtrado):
     fig, ax = plt.subplots(figsize=(6, 10))
     fig.patch.set_facecolor('white') 
-    
     try:
         img = mpimg.imread(IMAGEN_CANCHA)
         ax.imshow(img, extent=[0, 100, 100, 0])
@@ -146,10 +141,8 @@ def plot_cancha(df_filtrado):
         heatmap = heatmap.T
         heatmap_suave = gaussian_filter(heatmap, sigma=4)
         ax.imshow(heatmap_suave, extent=[0, 100, 100, 0], cmap='inferno', alpha=0.55)
-
         goles = df_cancha[df_cancha['Resultado'] == 'Gol']
         no_goles = df_cancha[df_cancha['Resultado'] != 'Gol']
-
         ax.scatter(no_goles['PX'], no_goles['PY'], c='white', marker='X', s=100, alpha=0.9, edgecolors='black')
         ax.scatter(goles['PX'], goles['PY'], c='#00e676', s=120, edgecolors='black', linewidth=1.5)
 
@@ -159,7 +152,6 @@ def plot_cancha(df_filtrado):
 def plot_porteria(df_filtrado):
     fig, ax = plt.subplots(figsize=(10, 5))
     fig.patch.set_facecolor('white') 
-    
     try:
         img = mpimg.imread(IMAGEN_PORTERIA)
         ax.imshow(img, extent=[0, 100, 100, 0])
@@ -173,12 +165,9 @@ def plot_porteria(df_filtrado):
     if len(df_tiros) > 0:
         df_tiros['PX'] = df_tiros['Coord Porteria'].apply(lambda x: float(str(x).split(',')[0]) if ',' in str(x) else np.nan)
         df_tiros['PY'] = df_tiros['Coord Porteria'].apply(lambda x: float(str(x).split(',')[1]) if ',' in str(x) else np.nan)
-        
         df_tiros = df_tiros.dropna(subset=['PX', 'PY'])
-
         goles = df_tiros[df_tiros['Resultado'] == 'Gol']
         paradas = df_tiros[df_tiros['Resultado'] == 'Parada']
-        
         tiros_heatmap = df_tiros[df_tiros['Resultado'].isin(['Gol', 'Parada'])]
 
         if len(tiros_heatmap) > 0:
@@ -207,16 +196,13 @@ def plot_radiografia_perdidas(df_filtrado):
     if not df_filtrado.empty and 'Detalle' in df_filtrado.columns:
         df_perdidas = df_filtrado[df_filtrado['Resultado'] == 'Perdida']
         detalles_validos = df_perdidas['Detalle'].replace('N/A', np.nan).dropna()
-        
         if not detalles_validos.empty:
             conteo = detalles_validos.value_counts()
             conteo.plot(kind='bar', color='#b71c1c', edgecolor='black', ax=ax)
-            
             ax.set_title('Radiografía de Pérdidas', fontweight='bold', fontsize=12)
             ax.set_ylabel('Cantidad')
             ax.grid(axis='y', linestyle='--', alpha=0.7)
             plt.xticks(rotation=15, ha='right', fontsize=9)
-            
             for p in ax.patches:
                 ax.annotate(str(p.get_height()), (p.get_x() + p.get_width() / 2., p.get_height()),
                             ha='center', va='center', xytext=(0, 5), textcoords='offset points', fontweight='bold')
@@ -228,16 +214,12 @@ def plot_radiografia_perdidas(df_filtrado):
 
 def plot_momentum(df_all):
     df_mom = df_all.copy()
-    
     def convertir_a_minutos(row):
         try:
             partes = str(row['Tiempo']).split(':')
-            if len(partes) == 3:
-                h, m, s = int(partes[0]), int(partes[1]), float(partes[2])
-            elif len(partes) == 2:
-                h, m, s = 0, int(partes[0]), float(partes[1])
-            else:
-                return 0
+            if len(partes) == 3: h, m, s = int(partes[0]), int(partes[1]), float(partes[2])
+            elif len(partes) == 2: h, m, s = 0, int(partes[0]), float(partes[1])
+            else: return 0
             minutos = h * 60 + m + s / 60
             if str(row['Periodo']).strip().upper() == '2T': minutos += 30
             return minutos
@@ -252,16 +234,9 @@ def plot_momentum(df_all):
 
     loc_upper = str(equipo_local).strip().upper()
     vis_upper = str(equipo_visitante).strip().upper()
-    
-    es_mex_loc = 'MEX' in loc_upper or 'MÉX' in loc_upper
-    es_mex_vis = 'MEX' in vis_upper or 'MÉX' in vis_upper
-    
-    if es_mex_loc:
-        color_loc, color_vis = '#006847', 'blue'
-    elif es_mex_vis:
-        color_loc, color_vis = 'blue', '#006847'
-    else:
-        color_loc, color_vis = 'red', 'blue'
+    if 'MEX' in loc_upper or 'MÉX' in loc_upper: color_loc, color_vis = '#006847', 'blue'
+    elif 'MEX' in vis_upper or 'MÉX' in vis_upper: color_loc, color_vis = 'blue', '#006847'
+    else: color_loc, color_vis = 'red', 'blue'
 
     t_eventos, score_loc, score_vis, momentum = [0], [0], [0], [0]
     marcador_L, marcador_V, racha_L, racha_V = 0, 0, 0, 0
@@ -269,11 +244,8 @@ def plot_momentum(df_all):
     for _, row in goles_df.iterrows():
         t = row['match_min']
         eq = str(row['Equipo']).strip()
-        
-        if eq == equipo_local:
-            marcador_L += 1; racha_L += 1; racha_V = 0
-        elif eq == equipo_visitante:
-            marcador_V += 1; racha_V += 1; racha_L = 0
+        if eq == equipo_local: marcador_L += 1; racha_L += 1; racha_V = 0
+        elif eq == equipo_visitante: marcador_V += 1; racha_V += 1; racha_L = 0
 
         if racha_L >= 2: mom_val = racha_L
         elif racha_V >= 2: mom_val = -racha_V
@@ -283,7 +255,6 @@ def plot_momentum(df_all):
         score_vis.append(marcador_V); momentum.append(mom_val)
 
     minuto_actual = df_mom['match_min'].max() if not df_mom.empty else 0
-    
     t_eventos.append(minuto_actual); score_loc.append(marcador_L)
     score_vis.append(marcador_V); momentum.append(momentum[-1])
 
@@ -299,7 +270,6 @@ def plot_momentum(df_all):
     ax_marcador.step(t_arr, score_loc, where='post', color=color_loc, linewidth=3, label=equipo_local)
     ax_marcador.step(t_arr, score_vis, where='post', color=color_vis, linewidth=3, label=equipo_visitante)
     ax_marcador.axvline(x=30, color='black', linestyle='--', alpha=0.5) 
-    
     ax_marcador.set_ylabel('Goles', fontsize=10, fontweight='bold')
     ax_marcador.grid(True, linestyle='--', alpha=0.4)
     ax_marcador.legend(fontsize=10, loc='upper left')
@@ -315,11 +285,9 @@ def plot_momentum(df_all):
     max_mom = max(abs(mom_arr.min()), abs(mom_arr.max()), 2) + 1
     ax_momentum.set_ylim(-max_mom, max_mom)
     ax_momentum.set_yticks([]) 
-    
     eje_x_max = max(60, minuto_actual)
     ax_marcador.set_xlim(0, eje_x_max)
     ax_marcador.set_xticks(np.arange(0, eje_x_max + 5, 5))
-
     return fig
 
 # ==========================================
@@ -344,19 +312,62 @@ with col_extra:
 
 st.divider()
 
-st.markdown("### 📈 Momentum del Partido")
-
-# 🚨 SEGURO DE MOMENTUM: Solo se muestra si estamos viendo UN solo partido.
+# ==========================================
+# 7. ZONA DINÁMICA: MOMENTUM vs HISTÓRICO
+# ==========================================
 if partido_sel == 'Todos (Histórico)':
-    st.info("ℹ️ Selecciona un partido específico en los filtros superiores para visualizar la gráfica de Momentum.")
-elif not df.empty:
-    fig_momentum = plot_momentum(df)
-    st.pyplot(fig_momentum)
+    st.markdown("### 🏆 Clasificación General del Torneo (Estadísticas por Jugador)")
+    st.info("Visualizando el acumulado de todos los partidos registrados.")
+    
+    # Filtrar solo acciones donde sí se identificó a un jugador
+    df_stats = df[(df['Jugador'].notna()) & (df['Jugador'] != 'N/A') & (df['Jugador'] != '')]
+    
+    if not df_stats.empty:
+        # Calcular Tiros Totales (Gol + Fallo + Parada)
+        df_tiros = df_stats[df_stats['Resultado'].isin(['Gol', 'Fallo', 'Parada'])]
+        tiros = df_tiros.groupby(['Equipo', 'Jugador']).size().reset_index(name='Tiros')
+        
+        # Calcular Goles
+        goles = df_stats[df_stats['Resultado'] == 'Gol'].groupby(['Equipo', 'Jugador']).size().reset_index(name='Goles')
+        
+        # Calcular Pérdidas
+        perdidas = df_stats[df_stats['Resultado'] == 'Perdida'].groupby(['Equipo', 'Jugador']).size().reset_index(name='Pérdidas')
+        
+        # Unir todas las métricas en una sola tabla (Outer join para no perder jugadores)
+        stats = pd.merge(tiros, goles, on=['Equipo', 'Jugador'], how='outer').fillna(0)
+        stats = pd.merge(stats, perdidas, on=['Equipo', 'Jugador'], how='outer').fillna(0)
+        
+        # Calcular Porcentaje de Efectividad
+        stats['Efectividad (%)'] = np.where(stats['Tiros'] > 0, round((stats['Goles'] / stats['Tiros']) * 100, 1), 0)
+        
+        # Formatear números enteros
+        stats['Goles'] = stats['Goles'].astype(int)
+        stats['Tiros'] = stats['Tiros'].astype(int)
+        stats['Pérdidas'] = stats['Pérdidas'].astype(int)
+        
+        # Ordenar a las mejores goleadoras primero, y desempatar por efectividad
+        stats = stats.sort_values(by=['Goles', 'Efectividad (%)'], ascending=[False, False]).reset_index(drop=True)
+        
+        # Mostrar la tabla en Streamlit (Ocupando todo el ancho)
+        st.dataframe(
+            stats.style.background_gradient(subset=['Efectividad (%)'], cmap='Greens')
+                       .background_gradient(subset=['Pérdidas'], cmap='Reds'),
+            use_container_width=True
+        )
+    else:
+        st.warning("No hay suficientes datos de jugadores para generar la clasificación.")
+
 else:
-    st.info("Esperando datos para calcular el Momentum...")
+    # SI HAY UN PARTIDO SELECCIONADO, MOSTRAMOS EL MOMENTUM NORMAL
+    st.markdown(f"### 📈 Momentum del Partido: {partido_sel}")
+    if not df.empty:
+        fig_momentum = plot_momentum(df)
+        st.pyplot(fig_momentum)
+    else:
+        st.info("Esperando datos para calcular el Momentum...")
 
 # ==========================================
-# 6. TABLA DE DATOS CRUDOS
+# 8. TABLA DE DATOS CRUDOS
 # ==========================================
 with st.expander("Ver Base de Datos Cruda"):
     st.dataframe(df)
