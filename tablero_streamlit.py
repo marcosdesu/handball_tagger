@@ -1,12 +1,13 @@
 import streamlit as st
 import pandas as pd
+import matplotlib.subplots as plt_subplots
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import numpy as np
 from scipy.ndimage import gaussian_filter
 from streamlit_autorefresh import st_autorefresh
 import time
-from matplotlib.ticker import MaxNLocator # 💡 NUEVO: Obliga a no usar decimales en gráficas
+from matplotlib.ticker import MaxNLocator
 
 # ==========================================
 # CONFIGURACIÓN DE LA PÁGINA
@@ -54,14 +55,14 @@ def load_data():
 df_vivo = load_data()
 
 # ==========================================
-# 2. FILTROS EN BARRA LATERAL 
+# 2. FILTROS EN BARRA LATERAL (Sin selector de partido)
 # ==========================================
 st.sidebar.header("Filtros del Partido")
 
 if not df_vivo.empty:
-    partidos_validos = [str(x) for x in df_vivo['Partido'].dropna().unique() if str(x) not in ['nan', 'N/A', '']]
-    # El más reciente sale primero por defecto
-    lista_partidos = list(reversed(partidos_validos)) if partidos_validos else ["Sin Datos"]
+    # 💡 NUEVO: Selección automática del partido más reciente
+    partidos_validos = df_vivo['Partido'].dropna().unique().tolist()
+    partido_actual = partidos_validos[-1] if partidos_validos else "Sin Datos"
     
     lista_equipos = ['Todos'] + [str(x) for x in df_vivo['Equipo'].dropna().unique()]
     lista_fases = ['Todas'] + [str(x) for x in df_vivo['Fase'].dropna().unique()]
@@ -70,9 +71,10 @@ if not df_vivo.empty:
     jugadores_validos = [str(x) for x in df_vivo['Jugador'].dropna().unique() if str(x) not in ['nan', 'N/A', '']]
     lista_jugadores = ['Todos'] + sorted(jugadores_validos)
 else:
-    lista_partidos, lista_equipos, lista_fases, lista_resultados, lista_lados, lista_jugadores = ["Sin Datos"], ['Todos'], ['Todas'], ['Todos'], ['Todos'], ['Todos']
+    partido_actual = "Sin Datos"
+    lista_equipos, lista_fases, lista_resultados, lista_lados, lista_jugadores = ['Todos'], ['Todas'], ['Todos'], ['Todos'], ['Todos']
 
-partido_sel = st.sidebar.selectbox("🏆 Seleccionar Partido", lista_partidos)
+st.sidebar.markdown(f"**🏆 Partido Actual:** {partido_actual}")
 st.sidebar.divider()
 
 equipo_sel = st.sidebar.selectbox("1. ¿Quién ataca?", lista_equipos)
@@ -82,8 +84,8 @@ resultado_sel = st.sidebar.selectbox("4. ¿Qué pasó?", lista_resultados)
 lado_sel = st.sidebar.selectbox("5. Lado de la Cancha", lista_lados)
 
 df = df_vivo.copy()
-if not df.empty and partido_sel != "Sin Datos":
-    df = df[df['Partido'].astype(str) == partido_sel]
+if not df.empty and partido_actual != "Sin Datos":
+    df = df[df['Partido'].astype(str) == partido_actual]
     if equipo_sel != 'Todos': df = df[df['Equipo'] == equipo_sel]
     if jugador_sel != 'Todos': df = df[df['Jugador'].astype(str) == jugador_sel]
     if fase_sel != 'Todas': df = df[df['Fase'] == fase_sel]
@@ -91,7 +93,7 @@ if not df.empty and partido_sel != "Sin Datos":
     if lado_sel != 'Todos': df = df[df['Lado'] == lado_sel]
 
 # ==========================================
-# 3. ESTADÍSTICAS SUPERIORES (Mejoradas con Efectividad)
+# 3. ESTADÍSTICAS SUPERIORES
 # ==========================================
 st.markdown("### 📊 Rendimiento del Partido")
 if not df.empty and 'Equipo' in df.columns:
@@ -105,13 +107,13 @@ if not df.empty and 'Equipo' in df.columns:
         fallos = len(df_eq[df_eq['Resultado'] == 'Fallo'])
         perdidas = len(df_eq[df_eq['Resultado'] == 'Perdida'])
         
-        # 💡 NUEVOS CÁLCULOS
         tiros_totales = goles + paradas + fallos
-        efectividad = (goles / tiros_totales * 100) if tiros_totales > 0 else 0
+        # 💡 NUEVO: Efectividad redondeada a número entero
+        efectividad = int(round((goles / tiros_totales * 100), 0)) if tiros_totales > 0 else 0
         
         c1, c2, c3, c4, c5, c6 = st.columns(6)
         c1.metric("Goles", goles)
-        c2.metric("Efectividad", f"{efectividad:.1f}%")
+        c2.metric("Efectividad", f"{efectividad}%")
         c3.metric("Tiros Totales", tiros_totales)
         c4.metric("Pérdidas", perdidas)
         c5.metric("Paradas (Rival)", paradas)
@@ -290,7 +292,6 @@ def plot_radiografia_errores(df_filtrado):
             ax.set_title('Top 5: Causas de Posesión Fallida', fontweight='bold', fontsize=12)
             ax.set_xlabel('Frecuencia', fontsize=9)
             ax.grid(axis='x', linestyle='--', alpha=0.7)
-            # 💡 NUEVO: Fuerza al eje X a usar solo números enteros
             ax.xaxis.set_major_locator(MaxNLocator(integer=True))
             return fig
             
@@ -298,44 +299,56 @@ def plot_radiografia_errores(df_filtrado):
     ax.axis('off')
     return fig
 
-# 💡 NUEVA FUNCIÓN: RADAR DEL PARTIDO
-def plot_radar_partido(df_filtrado):
-    fig, ax = plt.subplots(figsize=(5, 5), subplot_kw=dict(polar=True))
+# 💡 NUEVA FUNCIÓN: EVOLUCIÓN (Fatiga Táctica por tramos de 10 minutos)
+def plot_tendencia_cansancio(df_filtrado):
+    fig, ax = plt.subplots(figsize=(6, 4))
     fig.patch.set_facecolor('white')
     ax.set_facecolor('#f8f9fa')
-
-    equipos = df_filtrado['Equipo'].dropna().unique()
-    if len(equipos) == 0:
-        ax.text(0.5, 0.5, 'Sin datos para Radar', ha='center', va='center')
+    
+    if df_filtrado.empty:
+        ax.text(0.5, 0.5, 'Sin datos registrados', ha='center', va='center', color='gray')
         ax.axis('off')
         return fig
-
-    categorias = ['Goles', 'Tiros', 'Efectividad (%)', 'Pérdidas', 'Fallos']
-    num_vars = len(categorias)
-    angulos = np.linspace(0, 2 * np.pi, num_vars, endpoint=False).tolist()
-    angulos += angulos[:1]
-
-    for eq in equipos:
-        df_eq = df_filtrado[df_filtrado['Equipo'] == eq]
-        goles = len(df_eq[df_eq['Resultado'] == 'Gol'])
-        tiros = len(df_eq[df_eq['Resultado'].isin(['Gol', 'Fallo', 'Parada'])])
-        efectividad = (goles/tiros)*100 if tiros > 0 else 0
-        perdidas = len(df_eq[df_eq['Resultado'] == 'Perdida'])
-        fallos = len(df_eq[df_eq['Resultado'] == 'Fallo'])
-
-        valores = [goles, tiros, efectividad, perdidas, fallos]
-        valores += valores[:1]
-
-        # Colores personalizados (Verde si es México, sino Azul y Rojo)
-        color = '#006847' if 'MEX' in str(eq).upper() else ('#1565c0' if eq == equipos[0] else '#c62828')
         
-        ax.plot(angulos, valores, color=color, linewidth=2, label=str(eq))
-        ax.fill(angulos, valores, color=color, alpha=0.25)
-
-    ax.set_theta_offset(np.pi / 2)
-    ax.set_theta_direction(-1)
-    ax.set_thetagrids(np.degrees(angulos[:-1]), categorias, fontsize=10, fontweight='bold')
-    ax.legend(loc='upper right', bbox_to_anchor=(1.2, 1.1))
+    df_temp = df_filtrado.copy()
+    def get_minuto(row):
+        try:
+            partes = str(row['Tiempo']).split(':')
+            if len(partes) == 3: m = int(partes[1])
+            elif len(partes) == 2: m = int(partes[0])
+            else: return 0
+            if str(row['Periodo']).strip().upper() == '2T': m += 30
+            return m
+        except: return 0
+        
+    df_temp['Minuto'] = df_temp.apply(get_minuto, axis=1)
+    
+    # Crear bins de 10 minutos
+    bins = [0, 10, 20, 30, 40, 50, 60, 100]
+    labels = ['0-10', '10-20', '20-30', '30-40', '40-50', '50-60', '60+']
+    df_temp['Tramo'] = pd.cut(df_temp['Minuto'], bins=bins, labels=labels, right=False)
+    
+    # Agrupar
+    goles = df_temp[df_temp['Resultado'] == 'Gol'].groupby('Tramo').size()
+    perdidas = df_temp[df_temp['Resultado'] == 'Perdida'].groupby('Tramo').size()
+    
+    df_plot = pd.DataFrame({'Goles': goles, 'Pérdidas': perdidas}).fillna(0)
+    df_plot = df_plot.reindex(labels[:6]).fillna(0) # Solo mostramos hasta el minuto 60
+    
+    x = np.arange(len(df_plot.index))
+    width = 0.35
+    
+    ax.bar(x - width/2, df_plot['Goles'], width, label='Goles', color='#00e676', edgecolor='black')
+    ax.bar(x + width/2, df_plot['Pérdidas'], width, label='Pérdidas', color='#b71c1c', edgecolor='black')
+    
+    ax.set_title('Evolución del Partido (Goles vs Pérdidas)', fontweight='bold', fontsize=12)
+    ax.set_xlabel('Minutos de Juego', fontsize=10)
+    ax.set_ylabel('Cantidad', fontsize=10)
+    ax.set_xticks(x)
+    ax.set_xticklabels(df_plot.index, fontsize=9)
+    ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+    ax.grid(axis='y', linestyle='--', alpha=0.7)
+    ax.legend(fontsize=9)
     
     return fig
 
@@ -344,7 +357,7 @@ def plot_radar_partido(df_filtrado):
 # 5. LAYOUT: NIVEL 1 y 2
 # ==========================================
 st.markdown("### 📍 Nivel 1: El Espacio (Origen y Destino)")
-col_cancha, col_porteria = st.columns(2) # 💡 NUEVO: Las dos columnas miden exactamente lo mismo
+col_cancha, col_porteria = st.columns(2) 
 
 with col_cancha:
     fig_cancha = plot_cancha(df)
@@ -364,18 +377,18 @@ else:
 st.divider()
 
 # ==========================================
-# 6. LAYOUT: NIVEL 3 (Errores y Radar)
+# 6. LAYOUT: NIVEL 3 (Errores y Evolución)
 # ==========================================
-st.markdown("### 🧠 Nivel 3: Toma de Decisiones (Errores y Comparativa)")
-col_err, col_rad = st.columns(2)
+st.markdown("### 🧠 Nivel 3: Toma de Decisiones y Fases del Juego")
+col_err, col_ev = st.columns(2)
 
 with col_err:
     fig_errores = plot_radiografia_errores(df)
     st.pyplot(fig_errores)
 
-with col_rad:
-    fig_radar = plot_radar_partido(df)
-    st.pyplot(fig_radar)
+with col_ev:
+    fig_evolucion = plot_tendencia_cansancio(df)
+    st.pyplot(fig_evolucion)
 
 st.divider()
 
@@ -386,9 +399,12 @@ st.markdown("### 📋 Nivel 4: Rendimiento Individual (Jugadoras)")
 vista_tabla = st.radio("Filtro de Tabla:", ["Partido Actual", "Promedio Histórico"], horizontal=True)
 
 df_base = df if vista_tabla == "Partido Actual" else df_vivo
-df_jugadores = df_base[(df_base['Jugador'].notna()) & (df_base['Jugador'] != 'N/A') & (df_base['Jugador'] != '')]
+df_jugadores = df_base[(df_base['Jugador'].notna()) & (df_base['Jugador'] != 'N/A') & (df_base['Jugador'] != '')].copy()
 
 if not df_jugadores.empty:
+    # 💡 NUEVO: Aseguramos que Jugador sea texto puro para quitar el .0
+    df_jugadores['Jugador'] = df_jugadores['Jugador'].astype(str)
+    
     goles = df_jugadores[df_jugadores['Resultado'] == 'Gol'].groupby('Jugador').size().reset_index(name='Goles')
     tiros = df_jugadores[df_jugadores['Resultado'].isin(['Gol', 'Fallo', 'Parada'])].groupby('Jugador').size().reset_index(name='Tiros')
     perdidas = df_jugadores[df_jugadores['Resultado'] == 'Perdida'].groupby('Jugador').size().reset_index(name='Pérdidas')
@@ -399,7 +415,6 @@ if not df_jugadores.empty:
     stats = pd.merge(stats, sanciones, on='Jugador', how='outer').fillna(0)
     
     if vista_tabla == "Partido Actual":
-        # 💡 NUEVO: Si es el partido actual, forzamos que sean enteros (sin decimales)
         stats[['Goles', 'Tiros', 'Pérdidas', 'Sanciones']] = stats[['Goles', 'Tiros', 'Pérdidas', 'Sanciones']].astype(int)
     elif vista_tabla == "Promedio Histórico":
         total_partidos = df_vivo['Partido'].nunique()
@@ -407,7 +422,11 @@ if not df_jugadores.empty:
             stats[['Goles', 'Tiros', 'Pérdidas', 'Sanciones']] = stats[['Goles', 'Tiros', 'Pérdidas', 'Sanciones']] / total_partidos
             stats = stats.round(1)
             
-    stats['Efectividad (%)'] = np.where(stats['Tiros'] > 0, round((stats['Goles'] / stats['Tiros']) * 100, 1), 0)
+    stats['Efectividad (%)'] = np.where(stats['Tiros'] > 0, round((stats['Goles'] / stats['Tiros']) * 100, 1), 0.0)
+    
+    # 💡 NUEVO: Limpiamos el texto del jugador para borrar .0 si aparece
+    stats['Jugador'] = stats['Jugador'].apply(lambda x: x.split('.')[0] if x.endswith('.0') else x)
+    
     stats = stats.sort_values(by=['Goles', 'Efectividad (%)'], ascending=[False, False]).reset_index(drop=True)
     
     st.dataframe(
