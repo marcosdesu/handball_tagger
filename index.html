@@ -19,6 +19,7 @@
         .config-box label { font-size: 0.85em; color: #aaa; display: block; margin-bottom: 5px; }
         .config-box input { width: 100%; box-sizing: border-box; background: #2c2c2c; border: 1px solid #555; color: white; padding: 8px; border-radius: 4px; margin-bottom: 10px;}
         .config-full { grid-column: span 2; background: #222; border: 1px solid #ffb300; }
+        .input-highlight { border: 1px solid #ffb300 !important; font-weight: bold;}
 
         /* Layout Principal */
         .main-layout { display: grid; grid-template-columns: 50% 50%; gap: 15px; align-items: stretch; }
@@ -27,7 +28,8 @@
         
         .header-container { display: grid; grid-template-columns: 1fr 1fr; align-items: center; background: #1e1e1e; padding: 10px; border-radius: 8px; border: 1px solid #333; }
         .score-box { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 1.4em; font-weight: bold; }
-        .team-input { width: 80px; background: #2c2c2c; border: 1px solid #555; color: white; padding: 6px; font-size: 0.9em; text-align: center; border-radius: 4px; }
+        /* El nombre del equipo ahora es un texto simple, no un input */
+        .team-display { color: #fff; font-size: 1em; text-align: center; text-transform: uppercase; }
         
         .timer-box { background: #1e1e1e; padding: 10px; border-radius: 8px; border: 1px solid #2d2d2d; text-align: center; }
         #timer { font-family: monospace; font-size: 2em; color: #00e676; margin-bottom: 8px; font-weight: bold;}
@@ -53,10 +55,14 @@
         .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; flex-grow: 1;}
         .btn-result { padding: 15px 10px; font-size: 1.2em; font-weight: bold; border: none; border-radius: 8px; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center;}
         .btn-result:active { opacity: 0.7; transform: scale(0.98); }
+        
         .bg-gol { background: #2e7d32; }
         .bg-parada { background: #ef6c00; }
         .bg-fallo { background: #546e7a; }
         .bg-perdida { background: #b71c1c; }
+        /* NUEVO BOTÓN DE SANCIÓN (Ocupa las dos columnas) */
+        .btn-sancion { grid-column: span 2; background: #fbc02d; color: #000; padding: 12px; font-size: 1.2em; border: 2px solid #f57f17; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: -5px; margin-bottom: 10px;}
+        .btn-sancion:active { transform: scale(0.98); opacity: 0.8;}
 
         .canvas-box { display: flex; flex-direction: column; align-items: center; justify-content: center; background: #222; border-radius: 8px; padding: 10px; flex-grow: 1; }
         canvas { width: 100%; max-width: 320px; height: auto; background: #000; border-radius: 4px; display: block; cursor: crosshair; touch-action: none; }
@@ -69,11 +75,11 @@
         .jersey-grid { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-bottom: 20px; }
         .jersey-btn { background: #333; color: white; border: 2px solid #555; border-radius: 8px; width: 60px; height: 60px; font-size: 1.5em; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
         .jersey-btn:active { background: #555; transform: scale(0.95); }
-        .btn-omit { background: #b71c1c; color: white; padding: 12px 20px; border: none; border-radius: 6px; font-size: 1.1em; font-weight: bold; cursor: pointer; width: 100%; }
+        .btn-omit { background: #b71c1c; color: white; padding: 12px 20px; border: none; border-radius: 6px; font-size: 1.1em; font-weight: bold; cursor: pointer; width: 100%; margin-top: 10px;}
 
         .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
-        .btn-detail { background: #2c2c2c; color: white; border: 2px solid #b71c1c; border-radius: 8px; padding: 15px 10px; font-size: 1.1em; font-weight: bold; cursor: pointer; }
-        .btn-detail:active { background: #b71c1c; transform: scale(0.95); }
+        .btn-detail { background: #2c2c2c; color: white; border: 2px solid #ffb300; border-radius: 8px; padding: 15px 10px; font-size: 1.1em; font-weight: bold; cursor: pointer; }
+        .btn-detail:active { background: #444; transform: scale(0.95); }
 
         .table-container { max-height: 180px; overflow-y: auto; border: 1px solid #333; border-radius: 8px; margin-top: 10px; }
         table { width: 100%; font-size: 0.7em; border-collapse: collapse; background: #1e1e1e; }
@@ -83,18 +89,20 @@
 </head>
 <body>
     
-    <!-- ACORDEÓN 1: CONFIGURACIÓN DE EQUIPOS Y PARTIDO -->
-    <button class="accordion">⚙️ Configurar Partido y Camisetas</button>
+    <!-- ACORDEÓN 1: CONFIGURACIÓN CENTRALIZADA -->
+    <button class="accordion">⚙️ Configurar Partido y Equipos</button>
     <div class="panel">
         <div class="config-grid">
-            <!-- NUEVO: CAJA DEL NOMBRE DEL PARTIDO -->
             <div class="config-box config-full">
-                <label style="color: #ffb300; font-weight: bold; font-size: 1em;">🏆 Nombre del Partido (Para historial del torneo)</label>
-                <input type="text" id="nombre-partido" placeholder="Ej. J1 vs Brasil" style="font-size: 1.1em;">
+                <label style="color: #ffb300; font-weight: bold; font-size: 1em;">🏆 Nombre del Partido</label>
+                <input type="text" id="nombre-partido" placeholder="Ej. J1 vs Brasil" class="input-highlight">
             </div>
             
             <div class="config-box">
                 <div style="color: #64b5f6; font-weight: bold; margin-bottom: 10px;">EQUIPO LOCAL</div>
+                <!-- AL ESCRIBIR AQUÍ, SE ACTUALIZA TODO -->
+                <label>Nombre Corto (Ej. MEX)</label>
+                <input type="text" id="input-loc-name" value="LOC" oninput="syncNombres()" class="input-highlight">
                 <label>Jugadores de Campo (Separados por coma)</label>
                 <input type="text" id="loc-field" value="2, 4, 7, 9, 10, 14, 18, 22">
                 <label>Porteros (Separados por coma)</label>
@@ -102,6 +110,8 @@
             </div>
             <div class="config-box">
                 <div style="color: #ef5350; font-weight: bold; margin-bottom: 10px;">EQUIPO VISITANTE</div>
+                <label>Nombre Corto (Ej. BRA)</label>
+                <input type="text" id="input-vis-name" value="VIS" oninput="syncNombres()" class="input-highlight">
                 <label>Jugadores de Campo (Separados por coma)</label>
                 <input type="text" id="vis-field" value="3, 5, 8, 11, 13, 15, 19, 21">
                 <label>Porteros (Separados por coma)</label>
@@ -115,8 +125,9 @@
         <div class="left-col">
             <div>
                 <div class="header-container">
-                    <div class="score-box"><input type="text" id="nameLOC" value="LOC" class="team-input"> : <span id="scoreLOC">0</span></div>
-                    <div class="score-box"><input type="text" id="nameVIS" value="VIS" class="team-input"> : <span id="scoreVIS">0</span></div>
+                    <!-- MARCADOR LIMPIO (Ya no se puede escribir aquí) -->
+                    <div class="score-box"><span id="display-loc-name" class="team-display">LOC</span> : <span id="scoreLOC">0</span></div>
+                    <div class="score-box"><span id="display-vis-name" class="team-display">VIS</span> : <span id="scoreVIS">0</span></div>
                 </div>
 
                 <div class="timer-box">
@@ -130,8 +141,8 @@
                 
                 <div class="step-label">1. ¿Quien ataca?</div>
                 <div class="btn-row">
-                    <button class="btn-option" onclick="setEquipo('LOC')" id="Eq-LOC">LOCAL</button>
-                    <button class="btn-option" onclick="setEquipo('VIS')" id="Eq-VIS">VISITANTE</button>
+                    <button class="btn-option" onclick="setEquipo('LOC')" id="Eq-LOC">LOC</button>
+                    <button class="btn-option" onclick="setEquipo('VIS')" id="Eq-VIS">VIS</button>
                 </div>
                 
                 <div class="step-label">2. Fase / Tipo</div>
@@ -150,19 +161,20 @@
                     <button class="btn-result bg-fallo" onclick="iniciarRegistro('Fallo')">FALLO</button>
                     <button class="btn-result bg-perdida" onclick="iniciarRegistro('Perdida')">PERDIDA</button>
                 </div>
+                <!-- BOTÓN ANCHO DE SANCIÓN -->
+                <button class="btn-sancion" onclick="iniciarSancion()">🛑 SANCIÓN DISCIPLINARIA</button>
+                
                 <button class="btn-timer" onclick="resetAll()" style="width: 100%; background: #424242; font-size: 0.9em; padding: 10px;">🧹 Cancelar Accion / Limpiar</button>
             </div>
         </div>
 
         <div class="right-col">
             <div class="step-label">3. ¿Donde?</div>
-            
             <div class="canvas-box">
                 <div style="font-size: 0.8em; color:#ccc; margin-bottom:4px;">Origen</div>
                 <canvas id="cancha" width="300" height="300"></canvas>
                 <div id="c-text" class="coord-text">Lado: N/A</div>
             </div>
-
             <div class="canvas-box">
                 <div style="font-size: 0.8em; color:#ccc; margin-bottom:4px;">Destino</div>
                 <canvas id="porteria" width="300" height="150"></canvas>
@@ -178,7 +190,6 @@
             <table id="log">
                 <thead>
                     <tr>
-                        <!-- NUEVA COLUMNA DE PARTIDO EN LA TABLA -->
                         <th>Partido</th><th>Tiempo</th><th>Equipo</th><th>Jugador</th><th>Fase</th><th>Resultado</th><th>Detalle</th>
                     </tr>
                 </thead>
@@ -187,72 +198,103 @@
         </div>
     </div>
 
-    <!-- MODAL PRINCIPAL -->
+    <!-- MODALES DE POP-UP -->
     <div id="jerseyModal" class="modal">
         <div class="modal-content">
-            <div id="view-jerseys" style="display: block;">
+            
+            <!-- VISTA A: SELECCIÓN DE EQUIPO (Para Sanciones) -->
+            <div id="view-sancion-equipo" style="display: none;">
+                <div class="modal-title">⚖️ ¿A qué equipo sancionaron?</div>
+                <div class="details-grid">
+                    <button class="btn-detail" id="btn-sancion-loc" style="border-color:#1565c0;" onclick="elegirEquipoSancion('LOC')">LOCAL</button>
+                    <button class="btn-detail" id="btn-sancion-vis" style="border-color:#c62828;" onclick="elegirEquipoSancion('VIS')">VISITANTE</button>
+                </div>
+                <button class="btn-omit" style="background:#555;" onclick="cerrarModal()">Cancelar</button>
+            </div>
+
+            <!-- VISTA B: CAMISETAS -->
+            <div id="view-jerseys" style="display: none;">
                 <div class="modal-title" id="modal-title-text">¿Quién fue?</div>
                 <div id="jersey-container" class="jersey-grid"></div>
                 <button class="btn-omit" onclick="handleJerseySelection('N/A')">No vi el número / Omitir</button>
             </div>
-            <div id="view-details" style="display: none;">
+            
+            <!-- VISTA C: DETALLE PERDIDA -->
+            <div id="view-details-perdida" style="display: none;">
                 <div class="modal-title">⚠️ ¿Cómo la perdió?</div>
                 <div class="details-grid">
-                    <button class="btn-detail" onclick="finalizarRegistroCompleto('Mal Pase')">Mal Pase</button>
-                    <button class="btn-detail" onclick="finalizarRegistroCompleto('Violación (Pasos/Dobles)')">Violación (Pasos/Dobles)</button>
-                    <button class="btn-detail" onclick="finalizarRegistroCompleto('Falta Ofensiva')">Falta Ofensiva</button>
-                    <button class="btn-detail" onclick="finalizarRegistroCompleto('Balón Suelto / Robo')">Balón Suelto / Robo</button>
+                    <button class="btn-detail" onclick="finalizarRegistroCompleto('Mal Pase')">Pase / Passe</button>
+                    <button class="btn-detail" onclick="finalizarRegistroCompleto('Violación (Pasos/Dobles)')">Caminata o Doble</button>
+                    <button class="btn-detail" onclick="finalizarRegistroCompleto('Falta Ofensiva')">Ataque / Attaque</button>
+                    <button class="btn-detail" onclick="finalizarRegistroCompleto('Raya / Zone')">Raya / Zone</button>
                 </div>
                 <button class="btn-omit" style="background:#555;" onclick="finalizarRegistroCompleto('N/A')">Omitir detalle</button>
             </div>
+
+            <!-- VISTA D: DETALLE FALLO -->
+            <div id="view-details-fallo" style="display: none;">
+                <div class="modal-title">📉 Detalle del Fallo</div>
+                <div class="details-grid" style="grid-template-columns: 1fr 1fr 1fr;">
+                    <button class="btn-detail" onclick="finalizarRegistroCompleto('Poste / Poteau')">Poste</button>
+                    <button class="btn-detail" onclick="finalizarRegistroCompleto('Fuera / Dehors')">Fuera</button>
+                    <button class="btn-detail" onclick="finalizarRegistroCompleto('Bloqueo / Bloquer')">Bloqueado</button>
+                </div>
+                <button class="btn-omit" style="background:#555;" onclick="finalizarRegistroCompleto('N/A')">Omitir detalle</button>
+            </div>
+
+            <!-- VISTA E: DETALLE SANCION -->
+            <div id="view-details-sancion" style="display: none;">
+                <div class="modal-title">🛑 ¿Qué castigo?</div>
+                <div class="details-grid" style="grid-template-columns: 1fr 1fr 1fr;">
+                    <button class="btn-detail" style="background:#fbc02d; color:black;" onclick="finalizarSancion('Amarilla (A)')">Amarilla</button>
+                    <button class="btn-detail" style="border-color:#fff;" onclick="finalizarSancion('2 Minutos')">2 Minutos</button>
+                    <button class="btn-detail" style="background:#d32f2f;" onclick="finalizarSancion('Roja (D)')">Roja</button>
+                </div>
+                <button class="btn-omit" style="background:#555;" onclick="cerrarModal()">Cancelar</button>
+            </div>
+
         </div>
     </div>
 
     <script>
-        // ==========================================
-        // URL DE MAKE
-        // ==========================================
         const URL_MAKE = "https://hook.us2.make.com/1s41v7gvbf3p8tfrqqmip48pesbnqqei"; 
 
-        let startTime = 0, elapsedTime = 0;
-        let timerInterval = null;
-        let run = false, periodo = "1T";
+        let startTime = 0, elapsedTime = 0, timerInterval = null, run = false, periodo = "1T";
         let score = {LOC: 0, VIS: 0}; 
-        
         let state = {Eq: null, Jugador: '', Fase: 'Posicional', Lado: '', CX: null, CY: null, Zona: '', PX: null, PY: null, Detalle: ''};
-        let pendingResult = ""; 
-        let pasoModal = 1; 
-        let tempPortero = ""; 
+        let pendingResult = "", pasoModal = 1, tempPortero = "", eqSancion = ""; 
 
         const pCanvas = document.getElementById('porteria');
         const cCanvas = document.getElementById('cancha');
         const pCtx = pCanvas.getContext('2d');
         const cCtx = cCanvas.getContext('2d');
+        const pImg = new Image(); pImg.onload = () => pCtx.drawImage(pImg, 0, 0, pCanvas.width, pCanvas.height); pImg.src = 'NS_Goal_handball.png';
+        const cImg = new Image(); cImg.onload = () => cCtx.drawImage(cImg, 0, 0, cCanvas.width, cCanvas.height); cImg.src = 'NS_ui_Balonmano_BL_V_T.jpg';
         
-        const pImg = new Image(); 
-        pImg.onload = () => pCtx.drawImage(pImg, 0, 0, pCanvas.width, pCanvas.height);
-        pImg.src = 'NS_Goal_handball.png';
-        
-        const cImg = new Image(); 
-        cImg.onload = () => cCtx.drawImage(cImg, 0, 0, cCanvas.width, cCanvas.height);
-        cImg.src = 'NS_ui_Balonmano_BL_V_T.jpg';
-        
-        window.onload = () => {
-            document.getElementById('nameLOC').addEventListener('input', (e) => document.getElementById('Eq-LOC').innerText = e.target.value || 'LOCAL');
-            document.getElementById('nameVIS').addEventListener('input', (e) => document.getElementById('Eq-VIS').innerText = e.target.value || 'VISITANTE');
-            resetAll(); 
-        };
+        window.onload = () => { syncNombres(); resetAll(); };
+
+        // 💡 NUEVA FUNCIÓN: Sincroniza nombres de la configuración al marcador
+        function syncNombres() {
+            let locName = document.getElementById('input-loc-name').value || "LOC";
+            let visName = document.getElementById('input-vis-name').value || "VIS";
+            
+            document.getElementById('display-loc-name').innerText = locName;
+            document.getElementById('display-vis-name').innerText = visName;
+            
+            document.getElementById('Eq-LOC').innerText = locName;
+            document.getElementById('Eq-VIS').innerText = visName;
+            
+            document.getElementById('btn-sancion-loc').innerText = locName;
+            document.getElementById('btn-sancion-vis').innerText = visName;
+        }
 
         var acc = document.getElementsByClassName("accordion");
         for (let i = 0; i < acc.length; i++) {
             acc[i].addEventListener("click", function() {
                 this.classList.toggle("active");
                 var panel = this.nextElementSibling;
-                if (panel.style.maxHeight) {
-                    panel.style.maxHeight = null;
-                } else {
-                    panel.style.maxHeight = panel.scrollHeight + "px";
-                } 
+                if (panel.style.maxHeight) { panel.style.maxHeight = null; } 
+                else { panel.style.maxHeight = panel.scrollHeight + "px"; } 
             });
         }
 
@@ -274,28 +316,21 @@
 
         cCanvas.addEventListener('pointerdown', (e) => { 
             const r = cCanvas.getBoundingClientRect();
-            state.CX = Math.round(((e.clientX - r.left) / r.width) * 100);
-            state.CY = Math.round(((e.clientY - r.top) / r.height) * 100);
+            state.CX = Math.round(((e.clientX - r.left) / r.width) * 100); state.CY = Math.round(((e.clientY - r.top) / r.height) * 100);
             state.Lado = (state.CX <= 33.33) ? "Izq" : (state.CX <= 66.66) ? "Cen" : "Der";
             document.getElementById('c-text').innerText = `Lado: ${state.Lado} (${state.CX}, ${state.CY})`;
-            cCtx.clearRect(0,0,cCanvas.width,cCanvas.height); 
-            cCtx.drawImage(cImg,0,0,cCanvas.width,cCanvas.height);
-            cCtx.fillStyle = "#ff9800"; 
-            cCtx.beginPath(); cCtx.arc((state.CX/100)*cCanvas.width, (state.CY/100)*cCanvas.height, 8, 0, Math.PI*2); cCtx.fill();
+            cCtx.clearRect(0,0,cCanvas.width,cCanvas.height); cCtx.drawImage(cImg,0,0,cCanvas.width,cCanvas.height);
+            cCtx.fillStyle = "#ff9800"; cCtx.beginPath(); cCtx.arc((state.CX/100)*cCanvas.width, (state.CY/100)*cCanvas.height, 8, 0, Math.PI*2); cCtx.fill();
         });
 
         pCanvas.addEventListener('pointerdown', (e) => {
             const r = pCanvas.getBoundingClientRect();
-            state.PX = Math.round(((e.clientX - r.left) / r.width) * 100);
-            state.PY = Math.round(((e.clientY - r.top) / r.height) * 100);
-            let row = (state.PY <= 33.33) ? 0 : (state.PY <= 66.66) ? 1 : 2;
-            let col = (state.PX <= 33.33) ? 1 : (state.PX <= 66.66) ? 2 : 3;
+            state.PX = Math.round(((e.clientX - r.left) / r.width) * 100); state.PY = Math.round(((e.clientY - r.top) / r.height) * 100);
+            let row = (state.PY <= 33.33) ? 0 : (state.PY <= 66.66) ? 1 : 2; let col = (state.PX <= 33.33) ? 1 : (state.PX <= 66.66) ? 2 : 3;
             state.Zona = 'Z' + ((row * 3) + col);
             document.getElementById('z-text').innerText = `Zona: ${state.Zona} (${state.PX}, ${state.PY})`;
-            pCtx.clearRect(0,0,pCanvas.width,pCanvas.height); 
-            pCtx.drawImage(pImg,0,0,pCanvas.width,pCanvas.height);
-            pCtx.fillStyle = "#ff9800"; 
-            pCtx.beginPath(); pCtx.arc((state.PX/100)*pCanvas.width, (state.PY/100)*pCanvas.height, 6, 0, Math.PI*2); pCtx.fill();
+            pCtx.clearRect(0,0,pCanvas.width,pCanvas.height); pCtx.drawImage(pImg,0,0,pCanvas.width,pCanvas.height);
+            pCtx.fillStyle = "#ff9800"; pCtx.beginPath(); pCtx.arc((state.PX/100)*pCanvas.width, (state.PY/100)*pCanvas.height, 6, 0, Math.PI*2); pCtx.fill();
         });
 
         function setEquipo(eq) {
@@ -314,15 +349,12 @@
                 state.CX = 50; state.CY = 41; state.Lado = 'Cen';
                 document.getElementById('c-text').innerText = `Lado: ${state.Lado} (50, 41) [PENAL]`;
                 if(cImg.complete) {
-                    cCtx.clearRect(0,0,cCanvas.width,cCanvas.height); 
-                    cCtx.drawImage(cImg,0,0,cCanvas.width,cCanvas.height);
-                    cCtx.fillStyle = "#ff2a2a";
-                    cCtx.beginPath(); cCtx.arc((50/100)*cCanvas.width, (41/100)*cCanvas.height, 8, 0, Math.PI*2); cCtx.fill();
+                    cCtx.clearRect(0,0,cCanvas.width,cCanvas.height); cCtx.drawImage(cImg,0,0,cCanvas.width,cCanvas.height);
+                    cCtx.fillStyle = "#ff2a2a"; cCtx.beginPath(); cCtx.arc((50/100)*cCanvas.width, (41/100)*cCanvas.height, 8, 0, Math.PI*2); cCtx.fill();
                 }
             } else {
                 if (state.CX === 50 && state.CY === 41) {
-                    state.CX = null; state.CY = null; state.Lado = '';
-                    document.getElementById('c-text').innerText = 'Lado: N/A';
+                    state.CX = null; state.CY = null; state.Lado = ''; document.getElementById('c-text').innerText = 'Lado: N/A';
                     if(cImg.complete) { cCtx.clearRect(0,0,cCanvas.width,cCanvas.height); cCtx.drawImage(cImg,0,0,cCanvas.width,cCanvas.height); }
                 }
             }
@@ -330,26 +362,34 @@
 
         function resetAll() {
             state = {Eq: null, Jugador: '', Fase: 'Posicional', Lado: '', CX: null, CY: null, Zona: '', PX: null, PY: null, Detalle: ''};
-            document.getElementById('Eq-LOC').classList.remove('active');
-            document.getElementById('Eq-VIS').classList.remove('active');
-            document.getElementById('Fase-Pos').classList.add('active');
-            document.getElementById('Fase-Tra').classList.remove('active');
-            document.getElementById('Fase-Pen').classList.remove('active');
-            document.getElementById('c-text').innerText = 'Lado: N/A'; 
-            document.getElementById('z-text').innerText = 'Zona: N/A'; 
+            document.getElementById('Eq-LOC').classList.remove('active'); document.getElementById('Eq-VIS').classList.remove('active');
+            document.getElementById('Fase-Pos').classList.add('active'); document.getElementById('Fase-Tra').classList.remove('active'); document.getElementById('Fase-Pen').classList.remove('active');
+            document.getElementById('c-text').innerText = 'Lado: N/A'; document.getElementById('z-text').innerText = 'Zona: N/A'; 
             if(pImg.complete) { pCtx.clearRect(0,0,pCanvas.width,pCanvas.height); pCtx.drawImage(pImg,0,0,pCanvas.width,pCanvas.height); }
             if(cImg.complete) { cCtx.clearRect(0,0,cCanvas.width,cCanvas.height); cCtx.drawImage(cImg,0,0,cCanvas.width,cCanvas.height); }
         }
 
+        function ocultarVistasModal() {
+            document.getElementById('view-sancion-equipo').style.display = 'none';
+            document.getElementById('view-jerseys').style.display = 'none';
+            document.getElementById('view-details-perdida').style.display = 'none';
+            document.getElementById('view-details-fallo').style.display = 'none';
+            document.getElementById('view-details-sancion').style.display = 'none';
+        }
+
+        function cerrarModal() {
+            document.getElementById('jerseyModal').style.display = 'none';
+        }
+
+        // =====================================
+        // FLUJO 1: ACCIONES DE JUEGO (Gol, Parada, Fallo, Perdida)
+        // =====================================
         function iniciarRegistro(resultado) { 
             if (!state.Eq) { alert("⚠️ Selecciona el Equipo atacante antes de registrar."); return; }
-            pendingResult = resultado;
-            pasoModal = 1;
-            state.Jugador = ''; 
-            state.Detalle = '';
-
+            pendingResult = resultado; pasoModal = 1; state.Jugador = ''; state.Detalle = '';
+            
+            ocultarVistasModal();
             document.getElementById('view-jerseys').style.display = 'block';
-            document.getElementById('view-details').style.display = 'none';
 
             if (resultado === 'Parada') {
                 let eqDefensor = (state.Eq === 'LOC') ? 'vis' : 'loc';
@@ -378,40 +418,67 @@
         }
 
         function handleJerseySelection(numSeleccionado) {
+            state.Jugador = numSeleccionado;
+            ocultarVistasModal();
+
             if (pendingResult === 'Parada') {
                 if (pasoModal === 1) {
-                    tempPortero = numSeleccionado;
-                    pasoModal = 2;
+                    tempPortero = numSeleccionado; pasoModal = 2;
                     let inputField = document.getElementById(state.Eq.toLowerCase() + '-field').value;
                     mostrarBotonesCamisetas(inputField, "🎯 ¿Y quién tiró?", (state.Eq === 'LOC') ? '#1565c0' : '#c62828');
+                    document.getElementById('view-jerseys').style.display = 'block';
                     return;
                 } else {
                     state.Jugador = numSeleccionado;
-                    let detallePortero = (tempPortero === 'N/A') ? 'N/A' : 'Portero: ' + tempPortero;
-                    finalizarRegistroCompleto(detallePortero);
+                    finalizarRegistroCompleto((tempPortero === 'N/A') ? 'N/A' : 'Portero: ' + tempPortero);
                     return;
                 }
             }
-            state.Jugador = numSeleccionado;
-            if (pendingResult === 'Perdida') {
-                document.getElementById('view-jerseys').style.display = 'none';
-                document.getElementById('view-details').style.display = 'block';
-            } else {
-                finalizarRegistroCompleto('N/A');
-            }
+            
+            if (pendingResult === 'Perdida') { document.getElementById('view-details-perdida').style.display = 'block'; }
+            else if (pendingResult === 'Fallo') { document.getElementById('view-details-fallo').style.display = 'block'; }
+            else if (pendingResult === 'Sancion') { document.getElementById('view-details-sancion').style.display = 'block'; }
+            else { finalizarRegistroCompleto('N/A'); }
         }
 
+        // =====================================
+        // FLUJO 2: SANCIONES DISCIPLINARIAS
+        // =====================================
+        function iniciarSancion() {
+            pendingResult = "Sancion"; eqSancion = ""; state.Jugador = ""; state.Detalle = "";
+            ocultarVistasModal();
+            document.getElementById('view-sancion-equipo').style.display = 'block';
+            document.getElementById('jerseyModal').style.display = 'flex';
+        }
+
+        function elegirEquipoSancion(equipo) {
+            eqSancion = equipo;
+            ocultarVistasModal();
+            let inputField = document.getElementById(equipo.toLowerCase() + '-field').value;
+            let inputGk = document.getElementById(equipo.toLowerCase() + '-gk').value;
+            let todos = inputField + "," + inputGk; // Mostramos campo y porteros juntos para sancionar
+            mostrarBotonesCamisetas(todos, `👕 ¿A qué jugador de ${document.getElementById('input-'+equipo.toLowerCase()+'-name').value}?`, (equipo === 'LOC') ? '#1565c0' : '#c62828');
+            document.getElementById('view-jerseys').style.display = 'block';
+        }
+
+        function finalizarSancion(castigo) {
+            state.Eq = eqSancion; // Forzamos el equipo al que se le aplicó el castigo
+            state.Fase = "Juego Detenido";
+            state.CX = null; state.CY = null; state.PX = null; state.PY = null; state.Lado = 'N/A'; state.Zona = 'N/A';
+            finalizarRegistroCompleto(castigo);
+        }
+
+        // =====================================
+        // GUARDADO FINAL
+        // =====================================
         function finalizarRegistroCompleto(detalle) {
-            document.getElementById('jerseyModal').style.display = 'none'; 
+            cerrarModal(); 
             state.Detalle = detalle;
             
-            if (state.Fase === 'Penal') { state.CX = 50; state.CY = 41; state.Lado = 'Cen'; }
-
-            // NUEVO: Capturar el Nombre del Partido
             let nombrePartido = document.getElementById('nombre-partido').value;
             if (nombrePartido.trim() === '') nombrePartido = "Sin Nombre";
 
-            const nombreEq = (state.Eq === 'LOC') ? document.getElementById('nameLOC').value : document.getElementById('nameVIS').value;
+            const nombreEq = (state.Eq === 'LOC') ? document.getElementById('input-loc-name').value : document.getElementById('input-vis-name').value;
                              
             if (pendingResult === 'Gol') { score[state.Eq]++; document.getElementById('score'+state.Eq).innerText = score[state.Eq]; } 
             
@@ -434,10 +501,10 @@
             tbody.insertAdjacentHTML('afterbegin', row); 
             while (tbody.children.length > 3) { tbody.removeChild(tbody.lastChild); }
 
-            // ENVIAR A MAKE CON LA NUEVA VARIABLE "partido"
+            // ENVIAR A MAKE 
             if (URL_MAKE !== "AQUI_VA_EL_LINK_DE_MAKE") {
                 const payload = {
-                    partido: nombrePartido,  // <-- AQUÍ SE ENVÍA A MAKE
+                    partido: nombrePartido,
                     tiempo: timestamp,
                     periodo: periodo,
                     equipo: nombreEq,
