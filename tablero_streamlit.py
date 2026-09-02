@@ -11,7 +11,7 @@ import time
 # CONFIGURACIÓN DE LA PÁGINA
 # ==========================================
 st.set_page_config(page_title="Tablero Handball Live", layout="wide")
-st.title("Análisis Táctico en Vivo 🤾‍♀️")
+st.title("Análisis Táctico y Torneo 🤾‍♀️")
 
 IMAGEN_PORTERIA = 'NS_Goal_handball.png'
 IMAGEN_CANCHA = 'NS_ui_Balonmano_BL_V_T.jpg'
@@ -21,9 +21,6 @@ IMAGEN_CANCHA = 'NS_ui_Balonmano_BL_V_T.jpg'
 # ==========================================
 URL_USUARIO = "https://docs.google.com/spreadsheets/d/1PFpl8nYFD1-It3I5ArlY1rNPPDHnYARttgbH3bOZyQ0/edit?usp=sharing"
 
-# ==========================================
-# TRADUCTOR INTELIGENTE DE URL
-# ==========================================
 def obtener_url_csv(url):
     if "/edit" in url:
         return url.split("/edit")[0] + "/export?format=csv"
@@ -52,27 +49,33 @@ def load_data():
         df_temp = df_temp.dropna(how='all')
         return df_temp
     except Exception as e:
-        # Se actualizó el DataFrame de respaldo a 11 columnas
-        return pd.DataFrame(columns=['Tiempo', 'Periodo', 'Equipo', 'Jugador', 'Fase', 'Resultado', 'Detalle', 'Lado', 'Coord Lado', 'Zona', 'Coord Porteria'])
+        # 🚨 SE ACTUALIZÓ A 12 COLUMNAS (Incluyendo Partido)
+        return pd.DataFrame(columns=['Partido', 'Tiempo', 'Periodo', 'Equipo', 'Jugador', 'Fase', 'Resultado', 'Detalle', 'Lado', 'Coord Lado', 'Zona', 'Coord Porteria'])
 
 df_vivo = load_data()
 
 # ==========================================
 # 2. FILTROS INTERACTIVOS DINÁMICOS
 # ==========================================
-st.sidebar.header("Filtros del Partido")
+st.sidebar.header("Filtros Globales")
 
-if not df_vivo.empty and 'Equipo' in df_vivo.columns:
+if not df_vivo.empty:
+    # 🚨 NUEVO FILTRO MAESTRO DE PARTIDO
+    partidos_validos = [str(x) for x in df_vivo['Partido'].dropna().unique() if str(x) not in ['nan', 'N/A', '']]
+    lista_partidos = ['Todos (Histórico)'] + partidos_validos
+    
     lista_equipos = ['Todos'] + [str(x) for x in df_vivo['Equipo'].dropna().unique()]
     lista_fases = ['Todas'] + [str(x) for x in df_vivo['Fase'].dropna().unique()]
     lista_resultados = ['Todos'] + [str(x) for x in df_vivo['Resultado'].dropna().unique()]
     lista_lados = ['Todos'] + [str(x) for x in df_vivo['Lado'].dropna().unique()]
     
-    # Nuevo filtro inteligente de Jugador
     jugadores_validos = [str(x) for x in df_vivo['Jugador'].dropna().unique() if str(x) not in ['nan', 'N/A', '']]
     lista_jugadores = ['Todos'] + sorted(jugadores_validos)
 else:
-    lista_equipos, lista_fases, lista_resultados, lista_lados, lista_jugadores = ['Todos'], ['Todas'], ['Todos'], ['Todos'], ['Todos']
+    lista_partidos, lista_equipos, lista_fases, lista_resultados, lista_lados, lista_jugadores = ['Todos (Histórico)'], ['Todos'], ['Todas'], ['Todos'], ['Todos'], ['Todos']
+
+partido_sel = st.sidebar.selectbox("🏆 Seleccionar Partido", lista_partidos)
+st.sidebar.divider()
 
 equipo_sel = st.sidebar.selectbox("1. ¿Quién ataca?", lista_equipos)
 jugador_sel = st.sidebar.selectbox("2. Scouting Individual (Jugador)", lista_jugadores)
@@ -82,8 +85,10 @@ lado_sel = st.sidebar.selectbox("5. Lado de la Cancha", lista_lados)
 
 df = df_vivo.copy()
 if not df.empty:
+    # Aplicar el filtro de partido si no es el Histórico completo
+    if partido_sel != 'Todos (Histórico)': df = df[df['Partido'].astype(str) == partido_sel]
+    
     if equipo_sel != 'Todos': df = df[df['Equipo'] == equipo_sel]
-    # Lógica del nuevo filtro
     if jugador_sel != 'Todos': df = df[df['Jugador'].astype(str) == jugador_sel]
     if fase_sel != 'Todas': df = df[df['Fase'] == fase_sel]
     if resultado_sel != 'Todos': df = df[df['Resultado'] == resultado_sel]
@@ -103,17 +108,17 @@ if not df.empty and 'Equipo' in df.columns:
         
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Goles", len(df_eq[df_eq['Resultado'] == 'Gol']))
-        c2.metric("Paradas (Tiros atajados por el rival)", len(df_eq[df_eq['Resultado'] == 'Parada']))
+        c2.metric("Paradas (Tiros atajados)", len(df_eq[df_eq['Resultado'] == 'Parada']))
         c3.metric("Fallos", len(df_eq[df_eq['Resultado'] == 'Fallo']))
         c4.metric("Pérdidas", len(df_eq[df_eq['Resultado'] == 'Perdida']))
         st.write("") 
 else:
-    st.info("Esperando datos del partido para calcular métricas...")
+    st.info("Esperando datos para calcular métricas...")
 
 st.divider()
 
 # ==========================================
-# 4. FUNCIONES DE DIBUJO
+# 4. FUNCIONES DE DIBUJO (Sin cambios mayores)
 # ==========================================
 def plot_cancha(df_filtrado):
     fig, ax = plt.subplots(figsize=(6, 10))
@@ -194,7 +199,6 @@ def plot_porteria(df_filtrado):
     ax.axis('off')
     return fig
 
-# NUEVA FUNCIÓN: Gráfico de Barras de Pérdidas
 def plot_radiografia_perdidas(df_filtrado):
     fig, ax = plt.subplots(figsize=(6, 4))
     fig.patch.set_facecolor('white')
@@ -202,27 +206,23 @@ def plot_radiografia_perdidas(df_filtrado):
     
     if not df_filtrado.empty and 'Detalle' in df_filtrado.columns:
         df_perdidas = df_filtrado[df_filtrado['Resultado'] == 'Perdida']
-        
-        # Filtramos 'N/A' y nulos para tener datos reales
         detalles_validos = df_perdidas['Detalle'].replace('N/A', np.nan).dropna()
         
         if not detalles_validos.empty:
             conteo = detalles_validos.value_counts()
             conteo.plot(kind='bar', color='#b71c1c', edgecolor='black', ax=ax)
             
-            ax.set_title('Radiografía de Pérdidas No Forzadas / Forzadas', fontweight='bold', fontsize=12)
+            ax.set_title('Radiografía de Pérdidas', fontweight='bold', fontsize=12)
             ax.set_ylabel('Cantidad')
             ax.grid(axis='y', linestyle='--', alpha=0.7)
             plt.xticks(rotation=15, ha='right', fontsize=9)
             
-            # Agregar el número arriba de la barra
             for p in ax.patches:
                 ax.annotate(str(p.get_height()), (p.get_x() + p.get_width() / 2., p.get_height()),
                             ha='center', va='center', xytext=(0, 5), textcoords='offset points', fontweight='bold')
             return fig
             
-    # Si no hay datos de pérdidas, mostramos gráfico vacío
-    ax.text(0.5, 0.5, 'Sin datos de pérdidas registrados', ha='center', va='center', color='gray')
+    ax.text(0.5, 0.5, 'Sin datos registrados', ha='center', va='center', color='gray')
     ax.axis('off')
     return fig
 
@@ -345,8 +345,12 @@ with col_extra:
 st.divider()
 
 st.markdown("### 📈 Momentum del Partido")
-if not df_vivo.empty:
-    fig_momentum = plot_momentum(df_vivo)
+
+# 🚨 SEGURO DE MOMENTUM: Solo se muestra si estamos viendo UN solo partido.
+if partido_sel == 'Todos (Histórico)':
+    st.info("ℹ️ Selecciona un partido específico en los filtros superiores para visualizar la gráfica de Momentum.")
+elif not df.empty:
+    fig_momentum = plot_momentum(df)
     st.pyplot(fig_momentum)
 else:
     st.info("Esperando datos para calcular el Momentum...")
