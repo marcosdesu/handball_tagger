@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.subplots as plt_subplots
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import numpy as np
@@ -60,7 +59,6 @@ df_vivo = load_data()
 st.sidebar.header("Filtros del Partido")
 
 if not df_vivo.empty:
-    # 💡 NUEVO: Selección automática del partido más reciente
     partidos_validos = df_vivo['Partido'].dropna().unique().tolist()
     partido_actual = partidos_validos[-1] if partidos_validos else "Sin Datos"
     
@@ -108,7 +106,6 @@ if not df.empty and 'Equipo' in df.columns:
         perdidas = len(df_eq[df_eq['Resultado'] == 'Perdida'])
         
         tiros_totales = goles + paradas + fallos
-        # 💡 NUEVO: Efectividad redondeada a número entero
         efectividad = int(round((goles / tiros_totales * 100), 0)) if tiros_totales > 0 else 0
         
         c1, c2, c3, c4, c5, c6 = st.columns(6)
@@ -299,7 +296,6 @@ def plot_radiografia_errores(df_filtrado):
     ax.axis('off')
     return fig
 
-# 💡 NUEVA FUNCIÓN: EVOLUCIÓN (Fatiga Táctica por tramos de 10 minutos)
 def plot_tendencia_cansancio(df_filtrado):
     fig, ax = plt.subplots(figsize=(6, 4))
     fig.patch.set_facecolor('white')
@@ -323,17 +319,15 @@ def plot_tendencia_cansancio(df_filtrado):
         
     df_temp['Minuto'] = df_temp.apply(get_minuto, axis=1)
     
-    # Crear bins de 10 minutos
     bins = [0, 10, 20, 30, 40, 50, 60, 100]
     labels = ['0-10', '10-20', '20-30', '30-40', '40-50', '50-60', '60+']
     df_temp['Tramo'] = pd.cut(df_temp['Minuto'], bins=bins, labels=labels, right=False)
     
-    # Agrupar
     goles = df_temp[df_temp['Resultado'] == 'Gol'].groupby('Tramo').size()
     perdidas = df_temp[df_temp['Resultado'] == 'Perdida'].groupby('Tramo').size()
     
     df_plot = pd.DataFrame({'Goles': goles, 'Pérdidas': perdidas}).fillna(0)
-    df_plot = df_plot.reindex(labels[:6]).fillna(0) # Solo mostramos hasta el minuto 60
+    df_plot = df_plot.reindex(labels[:6]).fillna(0) 
     
     x = np.arange(len(df_plot.index))
     width = 0.35
@@ -402,7 +396,6 @@ df_base = df if vista_tabla == "Partido Actual" else df_vivo
 df_jugadores = df_base[(df_base['Jugador'].notna()) & (df_base['Jugador'] != 'N/A') & (df_base['Jugador'] != '')].copy()
 
 if not df_jugadores.empty:
-    # 💡 NUEVO: Aseguramos que Jugador sea texto puro para quitar el .0
     df_jugadores['Jugador'] = df_jugadores['Jugador'].astype(str)
     
     goles = df_jugadores[df_jugadores['Resultado'] == 'Gol'].groupby('Jugador').size().reset_index(name='Goles')
@@ -424,7 +417,6 @@ if not df_jugadores.empty:
             
     stats['Efectividad (%)'] = np.where(stats['Tiros'] > 0, round((stats['Goles'] / stats['Tiros']) * 100, 1), 0.0)
     
-    # 💡 NUEVO: Limpiamos el texto del jugador para borrar .0 si aparece
     stats['Jugador'] = stats['Jugador'].apply(lambda x: x.split('.')[0] if x.endswith('.0') else x)
     
     stats = stats.sort_values(by=['Goles', 'Efectividad (%)'], ascending=[False, False]).reset_index(drop=True)
