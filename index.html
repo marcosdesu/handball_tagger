@@ -167,20 +167,20 @@
         </div>
     </div>
 
-    <!-- ACORDEÓN 2: REGISTRO Y EXPORTACIÓN -->
-    <button class="accordion" style="margin-top: 15px;">📋 Ver Registro de Datos</button>
+<!-- ACORDEÓN 2: REGISTRO RECIENTE -->
+    <button class="accordion" style="margin-top: 15px;">📋 Últimas acciones registradas</button>
     <div class="panel">
         <div class="table-container">
             <table id="log">
                 <thead>
                     <tr>
-                        <th>Tiempo</th><th>Periodo</th><th>Equipo</th><th>Jugador</th><th>Fase</th><th>Resultado</th><th>Detalle</th><th>Lado</th><th>Coord Lado</th><th>Zona</th><th>Coord Porteria</th>
+                        <th>Tiempo</th><th>Equipo</th><th>Jugador</th><th>Fase</th><th>Resultado</th><th>Detalle</th>
                     </tr>
                 </thead>
                 <tbody></tbody>
             </table>
         </div>
-        <button class="btn-export" onclick="exportCSV()">📦 EXPORTAR CSV</button>
+        <!-- BOTÓN DE EXPORTAR ELIMINADO -->
     </div>
 
     <!-- MODAL PRINCIPAL: SECUENCIAL -->
@@ -445,28 +445,24 @@
             const coordCancha = state.CX !== null ? `${state.CX},${state.CY}` : '';
             const coordPorteria = state.PX !== null ? `${state.PX},${state.PY}` : '';
 
-            // 1. Guardar en la tabla visible
+            // 1. Guardar en la tabla visible (Solo Resumen y al principio de la lista)
             const row = `<tr>
                 <td>${timestamp}</td>
-                <td>${periodo}</td>
                 <td>${nombreEq}</td>
                 <td style="font-weight:bold; color:#00e676;">${state.Jugador}</td>
                 <td>${state.Fase}</td>
                 <td style="font-weight:bold;">${pendingResult}</td>
                 <td style="color:#ffb300;">${state.Detalle}</td>
-                <td>${state.Lado}</td>
-                <td>${coordCancha}</td>
-                <td>${state.Zona}</td>
-                <td>${coordPorteria}</td>
             </tr>`;
             
             const tbody = document.querySelector('#log tbody');
-            tbody.insertAdjacentHTML('beforeend', row); 
+            // Insertar arriba en lugar de abajo
+            tbody.insertAdjacentHTML('afterbegin', row); 
             
-            const panel = document.querySelector('.table-container').parentElement;
-            if (panel.style.maxHeight) { panel.style.maxHeight = panel.scrollHeight + "px"; }
-            const tableContainer = document.querySelector('.table-container');
-            tableContainer.scrollTop = tableContainer.scrollHeight;
+            // EL SEGURO DE NEGOCIO: Borrar filas viejas para que solo queden las últimas 3
+            while (tbody.children.length > 3) {
+                tbody.removeChild(tbody.lastChild);
+            }
 
             // 2. ENVIAR A MAKE
             if (URL_MAKE !== "AQUI_VA_EL_LINK_DE_MAKE") {
@@ -494,41 +490,6 @@
             resetAll();
         }
 
-        function exportCSV() { 
-            let csv = "Tiempo,Periodo,Equipo,Jugador,Fase,Resultado,Detalle,Lado,Coord Lado,Zona,Coord Porteria\n";
-            
-            let rows = document.querySelectorAll('#log tbody tr');
-            rows.forEach(row => {
-                let rowData = [];
-                let cols = row.querySelectorAll('td');
-                cols.forEach(col => {
-                    let cellData = col.innerText.replace(/"/g, '""');
-                    rowData.push(`"${cellData}"`);
-                });
-                csv += rowData.join(",") + "\n";
-            });
-            
-            const nombreArchivo = 'partido_scouting_live.csv';
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const file = new File([blob], nombreArchivo, { type: blob.type });
-
-            if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                navigator.share({
-                    files: [file],
-                    title: 'Scouting Live',
-                    text: 'Base de datos del partido (Medio Tiempo/Final)'
-                }).catch(console.error);
-            } else {
-                const link = document.createElement("a");
-                const url = URL.createObjectURL(blob);
-                link.setAttribute("href", url);
-                link.setAttribute("download", nombreArchivo);
-                link.style.visibility = 'hidden';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            }
-        }
     </script>
 </body>
 </html>
