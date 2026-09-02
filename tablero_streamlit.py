@@ -11,7 +11,7 @@ import time
 # CONFIGURACIÓN DE LA PÁGINA
 # ==========================================
 st.set_page_config(page_title="Tablero Handball Live", layout="wide")
-st.title("Análisis Táctico y Torneo 🤾‍♀️")
+st.title("Análisis Táctico 🤾‍♀️")
 
 IMAGEN_PORTERIA = 'NS_Goal_handball.png'
 IMAGEN_CANCHA = 'NS_ui_Balonmano_BL_V_T.jpg'
@@ -33,7 +33,7 @@ def obtener_url_csv(url):
 URL_OFICIAL = obtener_url_csv(URL_USUARIO)
 
 # ==========================================
-# 0. AUTO-REFRESCO (Cada 4 segundos)
+# 0. AUTO-REFRESCO
 # ==========================================
 st_autorefresh(interval=4000, limit=None, key="data_refresh")
 
@@ -44,7 +44,6 @@ def load_data():
     try:
         conector = "&" if "?" in URL_OFICIAL else "?"
         url_nocache = f"{URL_OFICIAL}{conector}_t={int(time.time())}"
-        
         df_temp = pd.read_csv(url_nocache)
         df_temp = df_temp.dropna(how='all')
         return df_temp
@@ -54,13 +53,14 @@ def load_data():
 df_vivo = load_data()
 
 # ==========================================
-# 2. FILTROS INTERACTIVOS DINÁMICOS
+# 2. FILTROS EN BARRA LATERAL (Solo para el partido actual)
 # ==========================================
-st.sidebar.header("Filtros Globales")
+st.sidebar.header("Filtros del Partido")
 
 if not df_vivo.empty:
     partidos_validos = [str(x) for x in df_vivo['Partido'].dropna().unique() if str(x) not in ['nan', 'N/A', '']]
-    lista_partidos = ['Todos (Histórico)'] + partidos_validos
+    # Volteamos la lista para que el partido más reciente salga primero
+    lista_partidos = list(reversed(partidos_validos)) if partidos_validos else ["Sin Datos"]
     
     lista_equipos = ['Todos'] + [str(x) for x in df_vivo['Equipo'].dropna().unique()]
     lista_fases = ['Todas'] + [str(x) for x in df_vivo['Fase'].dropna().unique()]
@@ -70,9 +70,10 @@ if not df_vivo.empty:
     jugadores_validos = [str(x) for x in df_vivo['Jugador'].dropna().unique() if str(x) not in ['nan', 'N/A', '']]
     lista_jugadores = ['Todos'] + sorted(jugadores_validos)
 else:
-    lista_partidos, lista_equipos, lista_fases, lista_resultados, lista_lados, lista_jugadores = ['Todos (Histórico)'], ['Todos'], ['Todas'], ['Todos'], ['Todos'], ['Todos']
+    lista_partidos, lista_equipos, lista_fases, lista_resultados, lista_lados, lista_jugadores = ["Sin Datos"], ['Todos'], ['Todas'], ['Todos'], ['Todos'], ['Todos']
 
-partido_sel = st.sidebar.selectbox("🏆 Seleccionar Partido", lista_partidos)
+# ELIMINADO EL HISTÓRICO DE AQUÍ: Solo se elige un partido
+partido_sel = st.sidebar.selectbox("🏆 Partido Actual", lista_partidos)
 st.sidebar.divider()
 
 equipo_sel = st.sidebar.selectbox("1. ¿Quién ataca?", lista_equipos)
@@ -81,9 +82,11 @@ fase_sel = st.sidebar.selectbox("3. Fase de Juego", lista_fases)
 resultado_sel = st.sidebar.selectbox("4. ¿Qué pasó?", lista_resultados)
 lado_sel = st.sidebar.selectbox("5. Lado de la Cancha", lista_lados)
 
+# Filtramos la base de datos principal SOLO para el partido seleccionado
 df = df_vivo.copy()
-if not df.empty:
-    if partido_sel != 'Todos (Histórico)': df = df[df['Partido'].astype(str) == partido_sel]
+if not df.empty and partido_sel != "Sin Datos":
+    df = df[df['Partido'].astype(str) == partido_sel]
+    
     if equipo_sel != 'Todos': df = df[df['Equipo'] == equipo_sel]
     if jugador_sel != 'Todos': df = df[df['Jugador'].astype(str) == jugador_sel]
     if fase_sel != 'Todas': df = df[df['Fase'] == fase_sel]
@@ -93,11 +96,9 @@ if not df.empty:
 # ==========================================
 # 3. MÉTRICAS SEPARADAS POR EQUIPO
 # ==========================================
-st.markdown("### 📊 Rendimiento por Equipo")
-
+st.markdown("### 📊 Rendimiento del Partido")
 if not df.empty and 'Equipo' in df.columns:
     equipos_presentes = df['Equipo'].dropna().unique()
-    
     for eq in equipos_presentes:
         st.markdown(f"**Estadísticas: {eq}**")
         df_eq = df[df['Equipo'] == eq]
@@ -188,27 +189,6 @@ def plot_porteria(df_filtrado):
     ax.axis('off')
     return fig
 
-def plot_radiografia_errores(df_filtrado):
-    fig, ax = plt.subplots(figsize=(6, 4))
-    fig.patch.set_facecolor('white')
-    ax.set_facecolor('#f8f9fa')
-    
-    if not df_filtrado.empty and 'Detalle' in df_filtrado.columns:
-        df_errores = df_filtrado[df_filtrado['Resultado'].isin(['Perdida', 'Fallo', 'Sancion'])]
-        detalles = df_errores['Detalle'].replace(['N/A', ''], np.nan).dropna()
-        
-        if not detalles.empty:
-            conteo = detalles.value_counts().head(5).sort_values()
-            conteo.plot(kind='barh', color='#b71c1c', edgecolor='black', ax=ax)
-            ax.set_title('Top 5: Causas de Posesión Fallida', fontweight='bold', fontsize=12)
-            ax.set_xlabel('Frecuencia', fontsize=9)
-            ax.grid(axis='x', linestyle='--', alpha=0.7)
-            return fig
-            
-    ax.text(0.5, 0.5, 'Sin datos de errores registrados', ha='center', va='center', color='gray')
-    ax.axis('off')
-    return fig
-
 def plot_momentum(df_all):
     df_mom = df_all.copy()
     def convertir_a_minutos(row):
@@ -260,7 +240,7 @@ def plot_momentum(df_all):
     mom_positivo = np.where(mom_arr > 0, mom_arr, 0)
     mom_negativo = np.where(mom_arr < 0, mom_arr, 0)
 
-    fig, (ax_marcador, ax_momentum) = plt.subplots(2, 1, figsize=(14, 6), gridspec_kw={'height_ratios': [2, 1]}, sharex=True)
+    fig, (ax_marcador, ax_momentum) = plt.subplots(2, 1, figsize=(14, 5), gridspec_kw={'height_ratios': [2, 1]}, sharex=True)
     fig.patch.set_facecolor('white') 
     fig.subplots_adjust(hspace=0.05)
 
@@ -287,30 +267,54 @@ def plot_momentum(df_all):
     ax_marcador.set_xticks(np.arange(0, eje_x_max + 5, 5))
     return fig
 
-# ==========================================
-# 5. RENDERIZADO DE GRÁFICAS EN PANTALLA
-# ==========================================
-col_izq, col_der, col_extra = st.columns([1.2, 1.5, 1])
+# NUEVA FUNCIÓN DE ERRORES UNIFICADOS
+def plot_radiografia_errores(df_filtrado):
+    fig, ax = plt.subplots(figsize=(6, 4))
+    fig.patch.set_facecolor('white')
+    ax.set_facecolor('#f8f9fa')
+    
+    if not df_filtrado.empty and 'Detalle' in df_filtrado.columns:
+        df_errores = df_filtrado[df_filtrado['Resultado'].isin(['Perdida', 'Fallo', 'Sancion'])]
+        detalles = df_errores['Detalle'].replace(['N/A', ''], np.nan).dropna()
+        
+        if not detalles.empty:
+            conteo = detalles.value_counts().head(5).sort_values()
+            conteo.plot(kind='barh', color='#b71c1c', edgecolor='black', ax=ax)
+            ax.set_title('Top 5: Causas de Posesión Fallida', fontweight='bold', fontsize=12)
+            ax.set_xlabel('Frecuencia', fontsize=9)
+            ax.grid(axis='x', linestyle='--', alpha=0.7)
+            return fig
+            
+    ax.text(0.5, 0.5, 'Sin datos de errores registrados', ha='center', va='center', color='gray')
+    ax.axis('off')
+    return fig
 
-with col_izq:
-    st.markdown("### 📍 Origen de la Acción")
+
+# ==========================================
+# 5. LAYOUT: NIVEL 1 y 2
+# ==========================================
+st.markdown("### 📍 Nivel 1: El Espacio (Origen y Destino)")
+col_cancha, col_porteria = st.columns([1, 1.5])
+
+with col_cancha:
     fig_cancha = plot_cancha(df)
     st.pyplot(fig_cancha)
 
-with col_der:
-    st.markdown("### 🥅 Definición")
+with col_porteria:
     fig_porteria = plot_porteria(df)
     st.pyplot(fig_porteria)
 
-with col_extra:
-    st.markdown("### 📉 Análisis Táctico")
-    fig_perdidas = plot_radiografia_perdidas(df)
-    st.pyplot(fig_perdidas)
+st.markdown("### 📈 Nivel 2: El Flujo del Partido")
+if not df.empty:
+    fig_momentum = plot_momentum(df)
+    st.pyplot(fig_momentum)
+else:
+    st.info("Esperando datos para calcular el Momentum...")
 
 st.divider()
 
 # ==========================================
-# 7. NIVEL 3: ERROR Y JUGADORAS (Radiografía + Tabla Toggle)
+# 6. LAYOUT: NIVEL 3
 # ==========================================
 st.markdown("### 🧠 Nivel 3: Toma de Decisiones y Rendimiento")
 col_err, col_tab = st.columns([1, 1.5])
@@ -322,18 +326,16 @@ with col_err:
 with col_tab:
     vista_tabla = st.radio("Filtro de Tabla:", ["Partido Actual", "Promedio Histórico"], horizontal=True)
     
-    # Elegir qué base de datos usar según el botón
+    # Elegir base según botón
     df_base = df if vista_tabla == "Partido Actual" else df_vivo
     df_jugadores = df_base[(df_base['Jugador'].notna()) & (df_base['Jugador'] != 'N/A') & (df_base['Jugador'] != '')]
     
     if not df_jugadores.empty:
-        # Calcular Goles, Tiros Totales y Pérdidas
         goles = df_jugadores[df_jugadores['Resultado'] == 'Gol'].groupby('Jugador').size().reset_index(name='Goles')
         tiros = df_jugadores[df_jugadores['Resultado'].isin(['Gol', 'Fallo', 'Parada'])].groupby('Jugador').size().reset_index(name='Tiros')
         perdidas = df_jugadores[df_jugadores['Resultado'] == 'Perdida'].groupby('Jugador').size().reset_index(name='Pérdidas')
         sanciones = df_jugadores[df_jugadores['Resultado'] == 'Sancion'].groupby('Jugador').size().reset_index(name='Sanciones')
         
-        # Unir tabla
         stats = pd.merge(goles, tiros, on='Jugador', how='outer').fillna(0)
         stats = pd.merge(stats, perdidas, on='Jugador', how='outer').fillna(0)
         stats = pd.merge(stats, sanciones, on='Jugador', how='outer').fillna(0)
@@ -356,7 +358,7 @@ with col_tab:
         st.info("Esperando datos de jugadoras...")
 
 # ==========================================
-# 8. TABLA DE DATOS CRUDOS
+# 7. TABLA DE DATOS CRUDOS
 # ==========================================
 with st.expander("Ver Base de Datos Cruda"):
     st.dataframe(df)
