@@ -174,7 +174,6 @@
             <table id="log">
                 <thead>
                     <tr>
-                        <!-- SE AGREGA LA COLUMNA DETALLE -->
                         <th>Tiempo</th><th>Periodo</th><th>Equipo</th><th>Jugador</th><th>Fase</th><th>Resultado</th><th>Detalle</th><th>Lado</th><th>Coord Lado</th><th>Zona</th><th>Coord Porteria</th>
                     </tr>
                 </thead>
@@ -224,7 +223,6 @@
         let run = false, periodo = "1T";
         let score = {LOC: 0, VIS: 0}; 
         
-        // Se agrega la variable 'Detalle' al estado
         let state = {Eq: null, Jugador: '', Fase: 'Posicional', Lado: '', CX: null, CY: null, Zona: '', PX: null, PY: null, Detalle: ''};
         let pendingResult = ""; 
 
@@ -328,6 +326,28 @@
             document.getElementById('Fase-Pos').classList.toggle('active', fase === 'Posicional');
             document.getElementById('Fase-Tra').classList.toggle('active', fase === 'Transicion');
             document.getElementById('Fase-Pen').classList.toggle('active', fase === 'Penal');
+
+            // 🚨 AUTOMATIZACIÓN DE PENAL (Feedback visual automático)
+            if (fase === 'Penal') {
+                state.CX = 50;
+                state.CY = 41;
+                state.Lado = 'Cen';
+                document.getElementById('c-text').innerText = `Lado: ${state.Lado} (50, 41) [PENAL]`;
+                
+                if(cImg.complete) {
+                    cCtx.clearRect(0,0,cCanvas.width,cCanvas.height); 
+                    cCtx.drawImage(cImg,0,0,cCanvas.width,cCanvas.height);
+                    cCtx.fillStyle = "#ff2a2a"; // Punto rojo para penal
+                    cCtx.beginPath(); cCtx.arc((50/100)*cCanvas.width, (41/100)*cCanvas.height, 8, 0, Math.PI*2); cCtx.fill();
+                }
+            } else {
+                // Borrar el punto automático si cambia de fase antes de guardar
+                if (state.CX === 50 && state.CY === 41) {
+                    state.CX = null; state.CY = null; state.Lado = '';
+                    document.getElementById('c-text').innerText = 'Lado: N/A';
+                    if(cImg.complete) { cCtx.clearRect(0,0,cCanvas.width,cCanvas.height); cCtx.drawImage(cImg,0,0,cCanvas.width,cCanvas.height); }
+                }
+            }
         }
 
         function resetAll() {
@@ -390,7 +410,6 @@
             document.getElementById('jerseyModal').style.display = 'flex';
         }
 
-        // Paso intermedio: Seleccionar camiseta
         function handleJerseySelection(jugador) {
             state.Jugador = jugador;
 
@@ -399,16 +418,22 @@
                 document.getElementById('view-jerseys').style.display = 'none';
                 document.getElementById('view-details').style.display = 'block';
             } else {
-                // Si es Gol, Parada o Fallo, terminamos directamente con Detalle "N/A"
+                // Si es Gol, Parada o Fallo, terminamos directamente
                 finalizarRegistroCompleto('N/A');
             }
         }
 
-        // Paso final: Guardar todo
         function finalizarRegistroCompleto(detalle) {
-            document.getElementById('jerseyModal').style.display = 'none'; // Ocultamos modal
+            document.getElementById('jerseyModal').style.display = 'none'; 
             state.Detalle = detalle;
             
+            // 🚨 SEGURO DE INTEGRIDAD: Si es penal, forzamos los datos aunque hayan tocado otra parte
+            if (state.Fase === 'Penal') {
+                state.CX = 50;
+                state.CY = 41;
+                state.Lado = 'Cen';
+            }
+
             const nombreEq = (state.Eq === 'LOC') ? document.getElementById('nameLOC').value : document.getElementById('nameVIS').value;
                              
             if (pendingResult === 'Gol') { 
@@ -420,7 +445,7 @@
             const coordCancha = state.CX !== null ? `${state.CX},${state.CY}` : '';
             const coordPorteria = state.PX !== null ? `${state.PX},${state.PY}` : '';
 
-            // 1. Guardar en la tabla visible (Con la nueva columna Detalle)
+            // 1. Guardar en la tabla visible
             const row = `<tr>
                 <td>${timestamp}</td>
                 <td>${periodo}</td>
@@ -443,7 +468,7 @@
             const tableContainer = document.querySelector('.table-container');
             tableContainer.scrollTop = tableContainer.scrollHeight;
 
-            // 2. ENVIAR A MAKE (Agregando campo detalle)
+            // 2. ENVIAR A MAKE
             if (URL_MAKE !== "AQUI_VA_EL_LINK_DE_MAKE") {
                 const payload = {
                     tiempo: timestamp,
@@ -452,7 +477,7 @@
                     jugador: state.Jugador,
                     fase: state.Fase,
                     resultado: pendingResult,
-                    detalle: state.Detalle, // NUEVO CAMPO PARA MAKE
+                    detalle: state.Detalle, 
                     lado: state.Lado,
                     coord_cancha: coordCancha,
                     zona_porteria: state.Zona,
@@ -470,7 +495,6 @@
         }
 
         function exportCSV() { 
-            // NUEVO ORDEN DE ENCABEZADOS CSV CON DETALLE
             let csv = "Tiempo,Periodo,Equipo,Jugador,Fase,Resultado,Detalle,Lado,Coord Lado,Zona,Coord Porteria\n";
             
             let rows = document.querySelectorAll('#log tbody tr');
