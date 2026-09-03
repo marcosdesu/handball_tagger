@@ -27,7 +27,17 @@ st.title("Análisis Táctico 🤾‍♀️")
 IMAGEN_PORTERIA = 'NS_Goal_handball.png'
 IMAGEN_CANCHA = 'NS_ui_Balonmano_BL_V_T.jpg'
 
-# 💡 TRUCO DE MEMORIA: Leemos el estado del botón antes de dibujarlo abajo
+# 💡 OPTIMIZACIÓN 1: Cargar imágenes una sola vez en RAM
+@st.cache_data
+def cargar_imagen(ruta):
+    try:
+        return mpimg.imread(ruta)
+    except:
+        return None
+
+IMG_CANCHA = cargar_imagen(IMAGEN_CANCHA)
+IMG_PORTERIA = cargar_imagen(IMAGEN_PORTERIA)
+
 if 'freeze_toggle' not in st.session_state:
     st.session_state['freeze_toggle'] = True
 estado_vivo = st.session_state['freeze_toggle']
@@ -49,15 +59,16 @@ def obtener_url_csv(url):
 URL_OFICIAL = obtener_url_csv(URL_USUARIO)
 
 # ==========================================
-# 0. AUTO-REFRESCO
+# 0. AUTO-REFRESCO (OPTIMIZADO A 8 SEG)
 # ==========================================
 if estado_vivo:
-    st_autorefresh(interval=4000, limit=None, key="data_refresh")
+    # 💡 OPTIMIZACIÓN 2: 8000 ms da tiempo para renderizar gráficas pesadas sin colapsar
+    st_autorefresh(interval=8000, limit=None, key="data_refresh")
 
 # ==========================================
 # 1. CONEXIÓN A DATOS 
 # ==========================================
-@st.cache_data(ttl=3 if estado_vivo else 3600)
+@st.cache_data(ttl=5 if estado_vivo else 3600)
 def load_data():
     try:
         conector = "&" if "?" in URL_OFICIAL else "?"
@@ -165,13 +176,13 @@ st.divider()
 def plot_cancha(df_filtrado):
     fig, ax = plt.subplots(figsize=(6, 8))
     fig.patch.set_facecolor('white') 
-    try:
-        img = mpimg.imread(IMAGEN_CANCHA)
-        ax.imshow(img, extent=[0, 100, 100, 0])
-    except: ax.set_facecolor('white')
+    if IMG_CANCHA is not None: ax.imshow(IMG_CANCHA, extent=[0, 100, 100, 0])
+    else: ax.set_facecolor('white')
+    
     def extraer_coord(val, indice):
         try: return float(str(val).split(',')[indice])
         except: return np.nan
+        
     df_cancha = pd.DataFrame()
     if not df_filtrado.empty and 'Coord Lado' in df_filtrado.columns:
         df_filtrado = df_filtrado.copy()
@@ -208,10 +219,9 @@ def plot_cancha(df_filtrado):
 def plot_porteria(df_filtrado):
     fig, ax = plt.subplots(figsize=(9, 4.5))
     fig.patch.set_facecolor('white') 
-    try:
-        img = mpimg.imread(IMAGEN_PORTERIA)
-        ax.imshow(img, extent=[0, 100, 100, 0])
-    except: ax.set_facecolor('white')
+    if IMG_PORTERIA is not None: ax.imshow(IMG_PORTERIA, extent=[0, 100, 100, 0])
+    else: ax.set_facecolor('white')
+    
     df_tiros = pd.DataFrame()
     if not df_filtrado.empty and 'Coord Porteria' in df_filtrado.columns:
         df_tiros = df_filtrado[df_filtrado['Coord Porteria'].notna() & (df_filtrado['Coord Porteria'] != '')].copy()
@@ -457,12 +467,19 @@ fig_momentum = plot_momentum(df) if not df.empty else None
 # ==========================================
 st.markdown("### 📍 Nivel 1: El Espacio (Origen y Destino)")
 col_cancha, col_porteria = st.columns(2) 
-with col_cancha: st.pyplot(fig_cancha)
-with col_porteria: st.pyplot(fig_porteria)
+with col_cancha: 
+    st.pyplot(fig_cancha)
+    plt.close(fig_cancha) # 💡 OPTIMIZACIÓN 3: Limpiar memoria RAM inmediatamente
+with col_porteria: 
+    st.pyplot(fig_porteria)
+    plt.close(fig_porteria)
 
 st.markdown("### 📈 Nivel 2: El Flujo del Partido")
-if fig_momentum: st.pyplot(fig_momentum)
-else: st.info("Esperando datos para calcular el Momentum...")
+if fig_momentum: 
+    st.pyplot(fig_momentum)
+    plt.close(fig_momentum)
+else: 
+    st.info("Esperando datos para calcular el Momentum...")
 st.divider()
 
 st.markdown("### 🧠 Nivel 3: Toma de Decisiones y Evolución Táctica")
@@ -472,14 +489,17 @@ fig_radar = plot_radar_avanzado(df, df_vivo, equipo_local, equipo_visitante, mod
 fig_evolucion = plot_tendencia_cansancio(df, df_vivo, equipo_local, modo_analisis)
 
 col_rad, col_ev = st.columns(2)
-with col_rad: st.pyplot(fig_radar)
-with col_ev: st.pyplot(fig_evolucion)
+with col_rad: 
+    st.pyplot(fig_radar)
+    plt.close(fig_radar)
+with col_ev: 
+    st.pyplot(fig_evolucion)
+    plt.close(fig_evolucion)
 st.divider()
 
 st.markdown("### 📋 Nivel 4: Rendimiento Individual Detallado")
 vista_tabla = st.radio("Filtro de Tabla:", ["Partido Actual", "Promedio Histórico"], horizontal=True)
 
-# 💡 LÓGICA DE HISTÓRICO CORREGIDA: Aislamos ÚNICAMENTE al equipo local
 if vista_tabla == "Partido Actual":
     df_base = df
 else:
@@ -514,7 +534,6 @@ if not df_jugadores.empty:
         stats[columnas_numericas] = stats[columnas_numericas].astype(int)
         format_dict = {col: '{:.0f}' for col in columnas_numericas}
     else:
-        # Promedio dividiendo solo entre los partidos que jugó el equipo local
         total_partidos = df_base['Partido'].nunique()
         if total_partidos > 0: stats[columnas_numericas] = stats[columnas_numericas] / total_partidos
         format_dict = {col: '{:.1f}' for col in columnas_numericas}
@@ -541,12 +560,12 @@ with st.expander("Ver Base de Datos Cruda"): st.dataframe(df)
 # ==========================================
 # MOTOR GENERADOR DE PDF MULTI-EQUIPO
 # ==========================================
-def crear_pdf_reporte(partido_nom, eq_local, eq_vis, fig_mom, fig_rad, fig_evo, df_partido):
+def crear_pdf_reporte(partido_nom, eq_local, eq_vis, df_partido, df_historico):
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=15)
     
     with tempfile.TemporaryDirectory() as tmpdir:
-        # Generar gráficas ocultas separadas
+        # Generar gráficas frescas solo para el PDF para asegurar que no interfieran con la memoria de UI
         df_loc = df_partido[df_partido['Equipo'] == eq_local]
         fig_c_loc = plot_cancha(df_loc)
         fig_p_loc = plot_porteria(df_loc)
@@ -566,14 +585,18 @@ def crear_pdf_reporte(partido_nom, eq_local, eq_vis, fig_mom, fig_rad, fig_evo, 
             fig_p_vis.savefig(p_p_vis, bbox_inches='tight', facecolor='white', dpi=150)
             plt.close(fig_c_vis); plt.close(fig_p_vis)
             
+        fig_mom_pdf = plot_momentum(df_partido) if not df_partido.empty else None
+        fig_rad_pdf = plot_radar_avanzado(df_partido, df_historico, eq_local, eq_vis, "Nuestra Historia")
+        fig_evo_pdf = plot_tendencia_cansancio(df_partido, df_historico, eq_local, "Nuestra Historia")
+        
         p_mom = os.path.join(tmpdir, "mom.png")
         p_rad = os.path.join(tmpdir, "rad.png")
         p_evo = os.path.join(tmpdir, "evo.png")
-        if fig_mom: fig_mom.savefig(p_mom, bbox_inches='tight', facecolor='white', dpi=150)
-        if fig_rad: fig_rad.savefig(p_rad, bbox_inches='tight', facecolor='white', dpi=150)
-        if fig_evo: fig_evo.savefig(p_evo, bbox_inches='tight', facecolor='white', dpi=150)
+        if fig_mom_pdf: fig_mom_pdf.savefig(p_mom, bbox_inches='tight', facecolor='white', dpi=150)
+        if fig_rad_pdf: fig_rad_pdf.savefig(p_rad, bbox_inches='tight', facecolor='white', dpi=150)
+        if fig_evo_pdf: fig_evo_pdf.savefig(p_evo, bbox_inches='tight', facecolor='white', dpi=150)
+        plt.close(fig_mom_pdf); plt.close(fig_rad_pdf); plt.close(fig_evo_pdf)
 
-        # Constructor de hojas PDF
         def construir_hojas_equipo(team_name, df_team, p_cancha, p_porteria, is_local):
             pdf.add_page()
             pdf.set_font("Arial", "B", 16)
@@ -656,31 +679,29 @@ def crear_pdf_reporte(partido_nom, eq_local, eq_vis, fig_mom, fig_rad, fig_evo, 
             pdf.image(p_cancha, x=10, y=30, w=90)
             pdf.image(p_porteria, x=105, y=30, w=90)
 
-        # Armar hojas por equipo
         construir_hojas_equipo(eq_local, df_loc, p_c_loc, p_p_loc, True)
         if not df_vis.empty and eq_vis:
             construir_hojas_equipo(eq_vis, df_vis, p_c_vis, p_p_vis, False)
 
-        # 💡 SOLUCIÓN DE ACOMODO EN PÁGINA GLOBAL
         pdf.add_page()
         pdf.set_font("Arial", "B", 14)
         pdf.cell(0, 10, "ANALISIS COLECTIVO Y EVOLUCION", ln=True, align='C')
         pdf.ln(5)
         
         curr_y = pdf.get_y()
-        if fig_mom:
+        if fig_mom_pdf:
             pdf.set_font("Arial", "B", 12)
             pdf.cell(0, 10, "1. Flujo del Partido (Momentum)", ln=True)
             img_y = pdf.get_y()
             pdf.image(p_mom, x=10, y=img_y, w=190)
-            curr_y = img_y + 75 # Asegura un salto de línea limpio debajo del Momentum
+            curr_y = img_y + 75 
             
         pdf.set_y(curr_y)
         pdf.set_font("Arial", "B", 12)
         pdf.cell(0, 10, "2. Toma de Decisiones y Fatiga Tactica", ln=True)
         img_y_2 = pdf.get_y()
-        if fig_rad: pdf.image(p_rad, x=10, y=img_y_2, w=90)
-        if fig_evo: pdf.image(p_evo, x=105, y=img_y_2, w=90)
+        if fig_rad_pdf: pdf.image(p_rad, x=10, y=img_y_2, w=90)
+        if fig_evo_pdf: pdf.image(p_evo, x=105, y=img_y_2, w=90)
 
         pdf_path = os.path.join(tmpdir, "reporte.pdf")
         pdf.output(pdf_path)
@@ -692,11 +713,10 @@ def crear_pdf_reporte(partido_nom, eq_local, eq_vis, fig_mom, fig_rad, fig_evo, 
 st.sidebar.divider()
 st.sidebar.markdown("### 🕹️ Control del Tablero")
 
-# 💡 EL BOTÓN DE PAUSA AL FONDO, SE REGISTRA DIRECTO EN SESSION_STATE
 st.sidebar.toggle("🟢 Conexión En Vivo", key="freeze_toggle", help="Apágalo para detener el refresco y exportar el reporte.")
 
 if estado_vivo:
-    st.sidebar.info("Actualizando datos cada 4 segundos.")
+    st.sidebar.info("Actualizando datos cada 8 segundos.")
 else:
     st.sidebar.warning("🔴 Tablero Congelado")
 
@@ -705,8 +725,8 @@ st.sidebar.markdown("### 📥 Exportar Análisis")
 if FPDF_DISPONIBLE and partido_actual != "Sin Datos" and not df.empty:
     if not estado_vivo:
         if st.sidebar.button("⚙️ Preparar Reporte PDF"):
-            with st.sidebar.status("Construyendo reporte... esto tomará unos segundos"):
-                pdf_data = crear_pdf_reporte(partido_actual, equipo_local, equipo_visitante, fig_momentum, fig_radar, fig_evolucion, df_partido_actual)
+            with st.sidebar.status("Construyendo reporte táctico..."):
+                pdf_data = crear_pdf_reporte(partido_actual, equipo_local, equipo_visitante, df_partido_actual, df_vivo)
                 st.session_state['pdf_listo'] = pdf_data
                 
         if 'pdf_listo' in st.session_state:
