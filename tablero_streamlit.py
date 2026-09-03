@@ -37,12 +37,10 @@ def cargar_imagen(ruta):
 IMG_CANCHA = cargar_imagen(IMAGEN_CANCHA)
 IMG_PORTERIA = cargar_imagen(IMAGEN_PORTERIA)
 
-# Lógica del botón de pausa conectada al fondo
 if 'freeze_toggle' not in st.session_state:
     st.session_state['freeze_toggle'] = True
 estado_vivo = st.session_state['freeze_toggle']
 
-# Memoria Anticaídas
 if 'df_backup' not in st.session_state:
     st.session_state['df_backup'] = pd.DataFrame()
 
@@ -69,23 +67,28 @@ if estado_vivo:
     st_autorefresh(interval=8000, limit=None, key="data_refresh")
 
 # ==========================================
-# 1. CONEXIÓN A DATOS (CON SISTEMA ANTICAÍDAS)
+# 1. CONEXIÓN A DATOS (CON LIMPIEZA TOTAL)
 # ==========================================
 @st.cache_data(ttl=5 if estado_vivo else 3600)
 def load_data():
     try:
         conector = "&" if "?" in URL_OFICIAL else "?"
-        # Reduce la frecuencia del timestamp para aprovechar el caché y no saturar Google
         url_nocache = f"{URL_OFICIAL}{conector}_t={int(time.time() // 8)}"
         df_temp = pd.read_csv(url_nocache)
         df_temp = df_temp.dropna(how='all')
+        
+        # 💡 SOLUCIÓN MAESTRA: Limpiamos los espacios "fantasma" de Excel de raíz
+        if 'Equipo' in df_temp.columns:
+            df_temp['Equipo'] = df_temp['Equipo'].astype(str).str.strip()
+        if 'Jugador' in df_temp.columns:
+            df_temp['Jugador'] = df_temp['Jugador'].astype(str).str.strip()
+            
         return df_temp
     except Exception as e:
-        return pd.DataFrame() # Si Google falla, devuelve vacío para usar el Backup
+        return pd.DataFrame() 
 
 df_fresh = load_data()
 
-# 💡 SISTEMA ANTICAÍDAS: Si no hay internet o Google tarda, usamos el historial guardado
 if not df_fresh.empty:
     st.session_state['df_backup'] = df_fresh.copy()
     df_vivo = df_fresh
@@ -112,11 +115,11 @@ else:
     df_partido_actual = pd.DataFrame()
 
 if not df_partido_actual.empty:
-    lista_equipos = ['Todos'] + [str(x).strip() for x in df_partido_actual['Equipo'].dropna().unique()]
+    lista_equipos = ['Todos'] + [str(x) for x in df_partido_actual['Equipo'].dropna().unique()]
     equipo_sel = st.sidebar.selectbox("1. ¿Quién ataca?", lista_equipos)
     
     if equipo_sel != 'Todos':
-        df_para_jugadores = df_partido_actual[df_partido_actual['Equipo'].astype(str).str.strip() == equipo_sel]
+        df_para_jugadores = df_partido_actual[df_partido_actual['Equipo'] == equipo_sel]
     else:
         df_para_jugadores = df_partido_actual
         
@@ -136,14 +139,13 @@ else:
 
 df = df_partido_actual.copy()
 if not df.empty:
-    df['Equipo'] = df['Equipo'].astype(str).str.strip()
     if equipo_sel != 'Todos': df = df[df['Equipo'] == equipo_sel]
     if jugador_sel != 'Todos': df = df[df['Jugador'].astype(str) == jugador_sel]
     if fase_sel != 'Todas': df = df[df['Fase'] == fase_sel]
     if resultado_sel != 'Todos': df = df[df['Resultado'] == resultado_sel]
     if lado_sel != 'Todos': df = df[df['Lado'] == lado_sel]
 
-equipos_totales = [str(x).strip() for x in df_partido_actual['Equipo'].dropna().unique()] if not df_partido_actual.empty else []
+equipos_totales = [str(x) for x in df_partido_actual['Equipo'].dropna().unique()] if not df_partido_actual.empty else []
 equipo_local = equipos_totales[0] if len(equipos_totales) > 0 else 'Local'
 equipo_visitante = equipos_totales[1] if len(equipos_totales) > 1 else None
 
@@ -183,7 +185,7 @@ else:
 st.divider()
 
 # ==========================================
-# 4. FUNCIONES DE DIBUJO ORIENTADAS A OBJETOS (Blindadas)
+# 4. FUNCIONES DE DIBUJO 
 # ==========================================
 def plot_cancha(df_filtrado):
     fig = plt.figure(figsize=(6, 8))
@@ -354,6 +356,10 @@ def plot_radar_avanzado(df_partido, df_historico, eq_local, eq_vis, modo):
     angulos += angulos[:1]
 
     def get_metrics(df_team, df_rival):
+        # 💡 FIX HISTÓRICO: Calculamos las sanciones PROMEDIO por partido
+        n_partidos = df_team['Partido'].nunique()
+        if n_partidos == 0: n_partidos = 1
+
         g = len(df_team[df_team['Resultado'] == 'Gol'])
         t = len(df_team[df_team['Resultado'].isin(['Gol', 'Fallo', 'Parada'])])
         efect = (g / t * 100) if t > 0 else 0
@@ -363,12 +369,16 @@ def plot_radar_avanzado(df_partido, df_historico, eq_local, eq_vis, modo):
         perd = len(df_team[df_team['Resultado'] == 'Perdida'])
         pos = t + perd
         seguridad = (t / pos * 100) if pos > 0 else 0
+        
         sanc = len(df_team[df_team['Resultado'] == 'Sancion'])
-        disciplina = max(0, 100 - (sanc * 10))
+        sanc_avg = sanc / n_partidos
+        disciplina = max(0, 100 - (sanc_avg * 10))
+        
         df_trans = df_team[df_team['Fase'].astype(str).str.contains('Transicion', case=False, na=False)]
         g_trans = len(df_trans[df_trans['Resultado'] == 'Gol'])
         acc_trans = len(df_trans)
         transicion = (g_trans / acc_trans * 100) if acc_trans > 0 else 0
+        
         vals = [efect, solidez, seguridad, disciplina, transicion]
         vals += vals[:1]
         return vals
@@ -575,7 +585,7 @@ if not df_jugadores.empty:
         use_container_width=True
     )
 else:
-    st.info("Esperando datos de rendimiento...")
+    st.info("Esperando datos individuales...")
     
 plt.close('all')
 
@@ -694,7 +704,7 @@ def crear_pdf_reporte(partido_nom, eq_local, eq_vis, df_partido, df_historico):
                     pdf.ln()
             else:
                 pdf.set_font("Arial", "I", 10)
-                pdf.cell(0, 10, "Sin datos de deportistas.", ln=True)
+                pdf.cell(0, 10, "Sin datos de atletas registrados.", ln=True)
 
             pdf.add_page()
             pdf.set_font("Arial", "B", 12)
