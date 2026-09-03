@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import matplotlib.subplots as plt_subplots
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import numpy as np
@@ -7,6 +8,15 @@ from scipy.ndimage import gaussian_filter
 from streamlit_autorefresh import st_autorefresh
 import time
 from matplotlib.ticker import MaxNLocator
+
+# 💡 NUEVO: Importaciones para el Generador de PDF
+try:
+    from fpdf import FPDF
+    import tempfile
+    import os
+    FPDF_DISPONIBLE = True
+except ImportError:
+    FPDF_DISPONIBLE = False
 
 # ==========================================
 # CONFIGURACIÓN DE LA PÁGINA
@@ -86,13 +96,10 @@ if not df_partido_actual.empty:
     lista_jugadores = ['Todos'] + jugadores_ordenados
     
     jugador_sel = st.sidebar.selectbox("2. Scouting Individual", lista_jugadores)
-    
     lista_fases = ['Todas'] + [str(x) for x in df_partido_actual['Fase'].dropna().unique()]
     fase_sel = st.sidebar.selectbox("3. Fase de Juego", lista_fases)
-    
     lista_resultados = ['Todos'] + [str(x) for x in df_partido_actual['Resultado'].dropna().unique()]
     resultado_sel = st.sidebar.selectbox("4. ¿Qué pasó?", lista_resultados)
-    
     lista_lados = ['Todos'] + [str(x) for x in df_partido_actual['Lado'].dropna().unique()]
     lado_sel = st.sidebar.selectbox("5. Lado de la Cancha", lista_lados)
 else:
@@ -109,6 +116,9 @@ if not df.empty:
 equipos_totales = df_partido_actual['Equipo'].dropna().unique() if not df_partido_actual.empty else []
 equipo_local = equipos_totales[0] if len(equipos_totales) > 0 else 'Local'
 equipo_visitante = equipos_totales[1] if len(equipos_totales) > 1 else None
+
+# Diccionario global para guardar las estadísticas del equipo local (para el PDF)
+stats_locales = {'goles':0, 'efect':0, 'tiros':0, 'perd':0, 'paradas':0, 'fallos':0}
 
 # ==========================================
 # 3. ESTADÍSTICAS SUPERIORES
@@ -128,6 +138,10 @@ if not df.empty and 'Equipo' in df.columns:
         tiros_totales = goles + paradas + fallos
         efectividad = int(round((goles / tiros_totales * 100), 0)) if tiros_totales > 0 else 0
         
+        # Guardar solo las del local para el reporte PDF
+        if eq == equipo_local:
+            stats_locales = {'goles':goles, 'efect':efectividad, 'tiros':tiros_totales, 'perd':perdidas, 'paradas':paradas, 'fallos':fallos}
+        
         c1, c2, c3, c4, c5, c6 = st.columns(6)
         c1.metric("Goles", goles)
         c2.metric("Efectividad", f"{efectividad}%")
@@ -138,11 +152,10 @@ if not df.empty and 'Equipo' in df.columns:
         st.write("") 
 else:
     st.info("Esperando datos para calcular métricas...")
-
 st.divider()
 
 # ==========================================
-# 4. FUNCIONES DE DIBUJO (Con Nueva Simbología)
+# 4. FUNCIONES DE DIBUJO 
 # ==========================================
 def plot_cancha(df_filtrado):
     fig, ax = plt.subplots(figsize=(6, 8))
@@ -167,7 +180,6 @@ def plot_cancha(df_filtrado):
         heatmap_suave = gaussian_filter(heatmap, sigma=4)
         ax.imshow(heatmap_suave, extent=[0, 100, 100, 0], cmap='inferno', alpha=0.55)
         
-        # 💡 SIMBOLOGÍA
         goles = df_cancha[df_cancha['Resultado'] == 'Gol']
         paradas = df_cancha[df_cancha['Resultado'] == 'Parada']
         fallos = df_cancha[df_cancha['Resultado'] == 'Fallo']
@@ -177,7 +189,6 @@ def plot_cancha(df_filtrado):
         if len(perdidas) > 0: ax.scatter(perdidas['PX'], perdidas['PY'], c='#d32f2f', marker='D', s=80, alpha=0.9, edgecolors='black')
         if len(paradas) > 0: ax.scatter(paradas['PX'], paradas['PY'], c='#ff9800', marker='^', s=100, alpha=0.9, edgecolors='black')
         if len(goles) > 0: ax.scatter(goles['PX'], goles['PY'], c='#00e676', marker='o', s=120, edgecolors='black', linewidth=1.5)
-        
     ax.axis('off')
     return fig
 
@@ -210,11 +221,9 @@ def plot_porteria(df_filtrado):
             heatmap_suave[heatmap_suave < 0.05] = np.nan
             ax.imshow(heatmap_suave, extent=[0, 100, 100, 0], cmap='inferno', alpha=0.65)
             
-        # 💡 SIMBOLOGÍA
         if len(fallos) > 0: ax.scatter(fallos['PX'], fallos['PY'], c='white', marker='X', s=90, alpha=0.9, edgecolors='black')
         if len(paradas) > 0: ax.scatter(paradas['PX'], paradas['PY'], c='#ff9800', marker='^', s=100, alpha=0.9, edgecolors='black')
         if len(goles) > 0: ax.scatter(goles['PX'], goles['PY'], c='#00e676', marker='o', s=120, edgecolors='black', linewidth=1.5)
-        
     ax.set_xlim(0, 100)
     ax.set_ylim(100, 0)
     ax.axis('off')
@@ -290,7 +299,7 @@ def plot_radar_avanzado(df_partido, df_historico, eq_local, eq_vis, modo):
     ax.set_facecolor('#f8f9fa')
 
     if df_partido.empty or eq_local not in df_partido['Equipo'].values:
-        ax.text(0.5, 0.5, f'Sin datos suficientes del Local\nen el filtro actual', ha='center', va='center', color='gray')
+        ax.text(0.5, 0.5, f'Sin datos suficientes', ha='center', va='center', color='gray')
         ax.axis('off')
         return fig
 
@@ -365,7 +374,7 @@ def plot_tendencia_cansancio(df_partido, df_historico, eq_local, modo):
     ax.set_facecolor('#f8f9fa')
     
     if df_partido.empty or eq_local not in df_partido['Equipo'].values:
-        ax.text(0.5, 0.5, f'Sin datos suficientes del Local\nen el filtro actual', ha='center', va='center', color='gray')
+        ax.text(0.5, 0.5, f'Sin datos suficientes', ha='center', va='center', color='gray')
         ax.axis('off')
         return fig
         
@@ -391,7 +400,6 @@ def plot_tendencia_cansancio(df_partido, df_historico, eq_local, modo):
     
     x = np.arange(len(df_plot_hoy.index))
     width = 0.35
-    
     color_gol = '#00e676' if 'MEX' in eq_local.upper() or 'CITRON' in eq_local.upper() else '#1565c0'
     
     ax.bar(x - width/2, df_plot_hoy['Goles'], width, label='Goles (Hoy)', color=color_gol, edgecolor='black')
@@ -429,58 +437,52 @@ def plot_tendencia_cansancio(df_partido, df_historico, eq_local, modo):
     plt.subplots_adjust(bottom=0.25)
     return fig
 
+# Generamos las figuras y las guardamos en variables para usarlas en el Dashboard y en el PDF
+fig_cancha = plot_cancha(df)
+fig_porteria = plot_porteria(df)
+fig_momentum = plot_momentum(df) if not df.empty else None
 
 # ==========================================
 # LAYOUT PRINCIPAL
 # ==========================================
-# 💡 LEYENDA TÁCTICA PARA ENTRENADORES
 st.markdown("""
 <div style='background-color: #1e1e1e; padding: 10px; border-radius: 5px; border: 1px solid #444; margin-bottom: 10px; font-size: 0.9em;'>
     <b>Simbología de Mapas:</b> &nbsp; 
-    🟢 <b>Goles</b> (Círculos Verdes) &nbsp;|&nbsp; 
-    🔶 <b>Paradas</b> (Triángulos Naranjas) &nbsp;|&nbsp; 
-    ✖️ <b>Fallos</b> (Cruces Blancas) &nbsp;|&nbsp; 
-    ♦️ <b>Pérdidas</b> (Rombos Rojos)
+    🟢 <b>Goles</b> (Círculos) &nbsp;|&nbsp; 
+    🔶 <b>Paradas</b> (Triángulos) &nbsp;|&nbsp; 
+    ✖️ <b>Fallos</b> (Cruces) &nbsp;|&nbsp; 
+    ♦️ <b>Pérdidas</b> (Rombos)
 </div>
 """, unsafe_allow_html=True)
 
 st.markdown("### 📍 Nivel 1: El Espacio (Origen y Destino)")
 col_cancha, col_porteria = st.columns(2) 
-
-with col_cancha:
-    st.pyplot(plot_cancha(df))
-
-with col_porteria:
-    st.pyplot(plot_porteria(df))
+with col_cancha: st.pyplot(fig_cancha)
+with col_porteria: st.pyplot(fig_porteria)
 
 st.markdown("### 📈 Nivel 2: El Flujo del Partido")
-if not df.empty:
-    st.pyplot(plot_momentum(df))
-else:
-    st.info("Esperando datos para calcular el Momentum...")
+if fig_momentum: st.pyplot(fig_momentum)
+else: st.info("Esperando datos para calcular el Momentum...")
 st.divider()
 
 st.markdown("### 🧠 Nivel 3: Toma de Decisiones y Evolución Táctica")
 modo_analisis = st.radio("🔍 Perspectiva de Análisis:", ["El Rival de Hoy", "Nuestra Historia"], horizontal=True)
 
+fig_radar = plot_radar_avanzado(df, df_vivo, equipo_local, equipo_visitante, modo_analisis)
+fig_evolucion = plot_tendencia_cansancio(df, df_vivo, equipo_local, modo_analisis)
+
 col_rad, col_ev = st.columns(2)
-with col_rad:
-    st.pyplot(plot_radar_avanzado(df, df_vivo, equipo_local, equipo_visitante, modo_analisis))
-
-with col_ev:
-    st.pyplot(plot_tendencia_cansancio(df, df_vivo, equipo_local, modo_analisis))
-
+with col_rad: st.pyplot(fig_radar)
+with col_ev: st.pyplot(fig_evolucion)
 st.divider()
 
 st.markdown("### 📋 Nivel 4: Rendimiento Individual (Jugadoras)")
 vista_tabla = st.radio("Filtro de Tabla:", ["Partido Actual", "Promedio Histórico"], horizontal=True)
-
 df_base = df if vista_tabla == "Partido Actual" else df_vivo
 df_jugadores = df_base[(df_base['Jugador'].notna()) & (df_base['Jugador'] != 'N/A') & (df_base['Jugador'] != '')].copy()
 
 if not df_jugadores.empty:
     df_jugadores['Jugador'] = df_jugadores['Jugador'].astype(str)
-    
     goles = df_jugadores[df_jugadores['Resultado'] == 'Gol'].groupby(['Equipo', 'Jugador']).size().reset_index(name='Goles')
     tiros = df_jugadores[df_jugadores['Resultado'].isin(['Gol', 'Fallo', 'Parada'])].groupby(['Equipo', 'Jugador']).size().reset_index(name='Tiros')
     perdidas = df_jugadores[df_jugadores['Resultado'] == 'Perdida'].groupby(['Equipo', 'Jugador']).size().reset_index(name='Pérdidas')
@@ -493,24 +495,80 @@ if not df_jugadores.empty:
     if vista_tabla == "Partido Actual":
         stats[['Goles', 'Tiros', 'Pérdidas', 'Sanciones']] = stats[['Goles', 'Tiros', 'Pérdidas', 'Sanciones']].astype(int)
         format_dict = {'Goles': '{:.0f}', 'Tiros': '{:.0f}', 'Pérdidas': '{:.0f}', 'Sanciones': '{:.0f}', 'Efectividad (%)': '{:.1f}'}
-    elif vista_tabla == "Promedio Histórico":
+    else:
         total_partidos = df_vivo['Partido'].nunique()
-        if total_partidos > 0:
-            stats[['Goles', 'Tiros', 'Pérdidas', 'Sanciones']] = stats[['Goles', 'Tiros', 'Pérdidas', 'Sanciones']] / total_partidos
+        if total_partidos > 0: stats[['Goles', 'Tiros', 'Pérdidas', 'Sanciones']] = stats[['Goles', 'Tiros', 'Pérdidas', 'Sanciones']] / total_partidos
         format_dict = {'Goles': '{:.1f}', 'Tiros': '{:.1f}', 'Pérdidas': '{:.1f}', 'Sanciones': '{:.1f}', 'Efectividad (%)': '{:.1f}'}
             
     stats['Efectividad (%)'] = np.where(stats['Tiros'] > 0, (stats['Goles'] / stats['Tiros']) * 100, 0.0)
     stats['Jugador'] = stats['Jugador'].apply(lambda x: x.split('.')[0] if x.endswith('.0') else x)
     stats = stats.sort_values(by=['Equipo', 'Goles', 'Efectividad (%)'], ascending=[False, False, False]).reset_index(drop=True)
     
-    st.dataframe(
-        stats.style.format(format_dict)
-                   .background_gradient(subset=['Efectividad (%)'], cmap='Greens')
-                   .background_gradient(subset=['Pérdidas', 'Sanciones'], cmap='Reds'),
-        use_container_width=True
-    )
+    st.dataframe(stats.style.format(format_dict).background_gradient(subset=['Efectividad (%)'], cmap='Greens').background_gradient(subset=['Pérdidas', 'Sanciones'], cmap='Reds'), use_container_width=True)
 else:
     st.info("Esperando datos de jugadoras...")
+    
+with st.expander("Ver Base de Datos Cruda"): st.dataframe(df)
 
-with st.expander("Ver Base de Datos Cruda"):
-    st.dataframe(df)
+# ==========================================
+# MOTOR GENERADOR DE PDF
+# ==========================================
+def crear_pdf_reporte(partido_nom, eq_local, fig1, fig2, fig3, fig4, fig5, dict_stats):
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    
+    # Pagina 1: Resumen
+    pdf.add_page()
+    pdf.set_font("Arial", "B", 16)
+    pdf.cell(0, 10, f"REPORTE TACTICO: {partido_nom}", ln=True, align='C')
+    pdf.set_font("Arial", "", 12)
+    pdf.cell(0, 10, f"Equipo Principal: {eq_local}", ln=True, align='C')
+    pdf.ln(5)
+    
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 10, "Metricas Principales", ln=True)
+    pdf.set_font("Arial", "", 11)
+    pdf.cell(0, 8, f"Goles: {dict_stats['goles']}  |  Efectividad: {dict_stats['efect']}%  |  Tiros Totales: {dict_stats['tiros']}", ln=True)
+    pdf.cell(0, 8, f"Perdidas: {dict_stats['perd']}  |  Fallos: {dict_stats['fallos']}  |  Paradas del Rival: {dict_stats['paradas']}", ln=True)
+    pdf.ln(5)
+    
+    with tempfile.TemporaryDirectory() as tmpdir:
+        p1 = os.path.join(tmpdir, "1.png"); p2 = os.path.join(tmpdir, "2.png"); p3 = os.path.join(tmpdir, "3.png")
+        p4 = os.path.join(tmpdir, "4.png"); p5 = os.path.join(tmpdir, "5.png")
+        
+        fig1.savefig(p1, bbox_inches='tight', facecolor='white')
+        fig2.savefig(p2, bbox_inches='tight', facecolor='white')
+        if fig3: fig3.savefig(p3, bbox_inches='tight', facecolor='white')
+        fig4.savefig(p4, bbox_inches='tight', facecolor='white')
+        fig5.savefig(p5, bbox_inches='tight', facecolor='white')
+        
+        if fig3:
+            pdf.set_font("Arial", "B", 12)
+            pdf.cell(0, 10, "1. Flujo del Partido (Momentum)", ln=True)
+            pdf.image(p3, x=10, w=190)
+        
+        # Pagina 2
+        pdf.add_page()
+        pdf.set_font("Arial", "B", 12)
+        pdf.cell(0, 10, "2. El Espacio (Origen y Destino)", ln=True)
+        pdf.image(p1, x=10, y=30, w=90)
+        pdf.image(p2, x=105, y=30, w=90)
+        
+        # Pagina 3
+        pdf.add_page()
+        pdf.set_font("Arial", "B", 12)
+        pdf.cell(0, 10, "3. Toma de Decisiones y Fatiga Tactica", ln=True)
+        pdf.image(p4, x=10, y=30, w=90)
+        pdf.image(p5, x=105, y=30, w=90)
+        
+        out = pdf.output(dest='S')
+        return out.encode('latin1') if isinstance(out, str) else bytes(out)
+
+st.sidebar.divider()
+st.sidebar.markdown("### 📥 Exportar Análisis")
+
+if FPDF_DISPONIBLE and partido_actual != "Sin Datos" and not df.empty:
+    pdf_bytes = crear_pdf_reporte(partido_actual, equipo_local, fig_cancha, fig_porteria, fig_momentum, fig_radar, fig_evolucion, stats_locales)
+    st.sidebar.download_button(label="Descargar PDF del Partido", data=pdf_bytes, file_name=f"Reporte_{partido_actual}.pdf", mime="application/pdf")
+elif not FPDF_DISPONIBLE:
+    st.sidebar.warning("⚠️ Instala 'fpdf' en tu requirements.txt para habilitar la descarga en PDF.")
