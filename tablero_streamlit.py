@@ -44,9 +44,21 @@ def obtener_url_csv(url):
 URL_OFICIAL = obtener_url_csv(URL_USUARIO)
 
 # ==========================================
+# 0. CONTROL DE FLUJO (FREEZE MODE)
+# ==========================================
+st.sidebar.markdown("### 🕹️ Control del Tablero")
+estado_vivo = st.sidebar.toggle("🟢 Conexión En Vivo", value=True, help="Apágalo para generar y descargar el reporte.")
+
+if estado_vivo:
+    st_autorefresh(interval=4000, limit=None, key="data_refresh")
+    st.sidebar.info("Actualizando cada 4 seg.")
+else:
+    st.sidebar.warning("🔴 Tablero Congelado")
+
+# ==========================================
 # 1. CONEXIÓN A DATOS 
 # ==========================================
-@st.cache_data(ttl=3)
+@st.cache_data(ttl=3 if estado_vivo else 3600)
 def load_data():
     try:
         conector = "&" if "?" in URL_OFICIAL else "?"
@@ -113,8 +125,6 @@ equipos_totales = df_partido_actual['Equipo'].dropna().unique() if not df_partid
 equipo_local = equipos_totales[0] if len(equipos_totales) > 0 else 'Local'
 equipo_visitante = equipos_totales[1] if len(equipos_totales) > 1 else None
 
-stats_locales = {'goles':0, 'efect':0, 'tiros':0, 'perd':0, 'paradas':0, 'fallos':0}
-
 # ==========================================
 # 3. ESTADÍSTICAS SUPERIORES
 # ==========================================
@@ -132,9 +142,6 @@ if not df.empty and 'Equipo' in df.columns:
         
         tiros_totales = goles + paradas + fallos
         efectividad = int(round((goles / tiros_totales * 100), 0)) if tiros_totales > 0 else 0
-        
-        if eq == equipo_local:
-            stats_locales = {'goles':goles, 'efect':efectividad, 'tiros':tiros_totales, 'perd':perdidas, 'paradas':paradas, 'fallos':fallos}
         
         c1, c2, c3, c4, c5, c6 = st.columns(6)
         c1.metric("Goles", goles)
@@ -184,7 +191,6 @@ def plot_cancha(df_filtrado):
         if len(paradas) > 0: ax.scatter(paradas['PX'], paradas['PY'], c='#ff9800', marker='^', s=100, alpha=0.9, edgecolors='black')
         if len(goles) > 0: ax.scatter(goles['PX'], goles['PY'], c='#00e676', marker='o', s=120, edgecolors='black', linewidth=1.5)
     
-    # Simbología incrustada solo en la cancha
     leyenda = [
         mlines.Line2D([], [], color='w', marker='o', markerfacecolor='#00e676', markeredgecolor='black', markersize=9, markeredgewidth=1.5, label='Gol'),
         mlines.Line2D([], [], color='w', marker='^', markerfacecolor='#ff9800', markeredgecolor='black', markersize=9, label='Parada'),
@@ -228,7 +234,6 @@ def plot_porteria(df_filtrado):
         if len(paradas) > 0: ax.scatter(paradas['PX'], paradas['PY'], c='#ff9800', marker='^', s=100, alpha=0.9, edgecolors='black')
         if len(goles) > 0: ax.scatter(goles['PX'], goles['PY'], c='#00e676', marker='o', s=120, edgecolors='black', linewidth=1.5)
     
-    # 💡 LEYENDA ELIMINADA DE AQUÍ
     ax.set_xlim(0, 100)
     ax.set_ylim(100, 0)
     ax.axis('off')
@@ -276,7 +281,7 @@ def plot_momentum(df_all):
 
     fig, (ax_marcador, ax_momentum) = plt.subplots(2, 1, figsize=(14, 5), gridspec_kw={'height_ratios': [2, 1]}, sharex=True)
     fig.patch.set_facecolor('white') 
-
+    
     ax_marcador.step(t_arr, score_loc, where='post', color=color_loc, linewidth=3, label=equipo_local)
     ax_marcador.step(t_arr, score_vis, where='post', color=color_vis, linewidth=3, label=equipo_visitante if equipo_visitante else 'Visitante')
     ax_marcador.axvline(x=30, color='black', linestyle='--', alpha=0.5) 
@@ -296,7 +301,6 @@ def plot_momentum(df_all):
     ax_marcador.set_xlim(0, eje_x_max)
     ax_marcador.set_xticks(np.arange(0, eje_x_max + 5, 5))
     
-    # 💡 AJUSTE PARA EVITAR QUE SE ENPALME CON EL TÍTULO
     fig.tight_layout() 
     return fig
 
@@ -475,28 +479,50 @@ df_jugadores = df_base[(df_base['Jugador'].notna()) & (df_base['Jugador'] != 'N/
 
 if not df_jugadores.empty:
     df_jugadores['Jugador'] = df_jugadores['Jugador'].astype(str)
-    goles = df_jugadores[df_jugadores['Resultado'] == 'Gol'].groupby(['Equipo', 'Jugador']).size().reset_index(name='Goles')
-    tiros = df_jugadores[df_jugadores['Resultado'].isin(['Gol', 'Fallo', 'Parada'])].groupby(['Equipo', 'Jugador']).size().reset_index(name='Tiros')
-    perdidas = df_jugadores[df_jugadores['Resultado'] == 'Perdida'].groupby(['Equipo', 'Jugador']).size().reset_index(name='Pérdidas')
-    sanciones = df_jugadores[df_jugadores['Resultado'] == 'Sancion'].groupby(['Equipo', 'Jugador']).size().reset_index(name='Sanciones')
     
-    stats = pd.merge(goles, tiros, on=['Equipo', 'Jugador'], how='outer').fillna(0)
+    # 💡 NUEVO DESGLOSE TOTAL DE LA TABLA (Ataque y Disciplina)
+    goles = df_jugadores[df_jugadores['Resultado'] == 'Gol'].groupby(['Equipo', 'Jugador']).size().reset_index(name='Goles')
+    fallos = df_jugadores[df_jugadores['Resultado'] == 'Fallo'].groupby(['Equipo', 'Jugador']).size().reset_index(name='Fallos')
+    atajados = df_jugadores[df_jugadores['Resultado'] == 'Parada'].groupby(['Equipo', 'Jugador']).size().reset_index(name='Atajados')
+    perdidas = df_jugadores[df_jugadores['Resultado'] == 'Perdida'].groupby(['Equipo', 'Jugador']).size().reset_index(name='Pérdidas')
+    
+    amarillas = df_jugadores[df_jugadores['Detalle'].astype(str).str.contains('Amarilla', case=False, na=False)].groupby(['Equipo', 'Jugador']).size().reset_index(name='TA')
+    dos_min = df_jugadores[df_jugadores['Detalle'].astype(str).str.contains('2 Min', case=False, na=False)].groupby(['Equipo', 'Jugador']).size().reset_index(name='2M')
+    rojas = df_jugadores[df_jugadores['Detalle'].astype(str).str.contains('Roja', case=False, na=False)].groupby(['Equipo', 'Jugador']).size().reset_index(name='TR')
+    
+    stats = pd.merge(goles, fallos, on=['Equipo', 'Jugador'], how='outer').fillna(0)
+    stats = pd.merge(stats, atajados, on=['Equipo', 'Jugador'], how='outer').fillna(0)
     stats = pd.merge(stats, perdidas, on=['Equipo', 'Jugador'], how='outer').fillna(0)
-    stats = pd.merge(stats, sanciones, on=['Equipo', 'Jugador'], how='outer').fillna(0)
+    stats = pd.merge(stats, amarillas, on=['Equipo', 'Jugador'], how='outer').fillna(0)
+    stats = pd.merge(stats, dos_min, on=['Equipo', 'Jugador'], how='outer').fillna(0)
+    stats = pd.merge(stats, rojas, on=['Equipo', 'Jugador'], how='outer').fillna(0)
+    
+    stats['Tiros'] = stats['Goles'] + stats['Fallos'] + stats['Atajados']
+    
+    columnas_numericas = ['Goles', 'Fallos', 'Atajados', 'Tiros', 'Pérdidas', 'TA', '2M', 'TR']
     
     if vista_tabla == "Partido Actual":
-        stats[['Goles', 'Tiros', 'Pérdidas', 'Sanciones']] = stats[['Goles', 'Tiros', 'Pérdidas', 'Sanciones']].astype(int)
-        format_dict = {'Goles': '{:.0f}', 'Tiros': '{:.0f}', 'Pérdidas': '{:.0f}', 'Sanciones': '{:.0f}', 'Efectividad (%)': '{:.1f}'}
+        stats[columnas_numericas] = stats[columnas_numericas].astype(int)
+        format_dict = {col: '{:.0f}' for col in columnas_numericas}
     else:
         total_partidos = df_vivo['Partido'].nunique()
-        if total_partidos > 0: stats[['Goles', 'Tiros', 'Pérdidas', 'Sanciones']] = stats[['Goles', 'Tiros', 'Pérdidas', 'Sanciones']] / total_partidos
-        format_dict = {'Goles': '{:.1f}', 'Tiros': '{:.1f}', 'Pérdidas': '{:.1f}', 'Sanciones': '{:.1f}', 'Efectividad (%)': '{:.1f}'}
+        if total_partidos > 0: stats[columnas_numericas] = stats[columnas_numericas] / total_partidos
+        format_dict = {col: '{:.1f}' for col in columnas_numericas}
             
     stats['Efectividad (%)'] = np.where(stats['Tiros'] > 0, (stats['Goles'] / stats['Tiros']) * 100, 0.0)
-    stats['Jugador'] = stats['Jugador'].apply(lambda x: x.split('.')[0] if x.endswith('.0') else x)
-    stats = stats.sort_values(by=['Equipo', 'Goles', 'Efectividad (%)'], ascending=[False, False, False]).reset_index(drop=True)
+    format_dict['Efectividad (%)'] = '{:.1f}'
     
-    st.dataframe(stats.style.format(format_dict).background_gradient(subset=['Efectividad (%)'], cmap='Greens').background_gradient(subset=['Pérdidas', 'Sanciones'], cmap='Reds'), use_container_width=True)
+    stats['Jugador'] = stats['Jugador'].apply(lambda x: x.split('.')[0] if x.endswith('.0') else x)
+    
+    orden_cols = ['Equipo', 'Jugador', 'Goles', 'Fallos', 'Atajados', 'Tiros', 'Efectividad (%)', 'Pérdidas', 'TA', '2M', 'TR']
+    stats = stats[orden_cols].sort_values(by=['Equipo', 'Goles', 'Efectividad (%)'], ascending=[False, False, False]).reset_index(drop=True)
+    
+    st.dataframe(
+        stats.style.format(format_dict)
+                   .background_gradient(subset=['Efectividad (%)'], cmap='Greens')
+                   .background_gradient(subset=['Pérdidas', 'TA', '2M', 'TR'], cmap='Reds'), 
+        use_container_width=True
+    )
 else:
     st.info("Esperando datos de jugadoras...")
     
@@ -510,6 +536,7 @@ def crear_pdf_reporte(partido_nom, eq_local, eq_vis, fig_mom, fig_rad, fig_evo, 
     pdf.set_auto_page_break(auto=True, margin=15)
     
     with tempfile.TemporaryDirectory() as tmpdir:
+        # Generar gráficas ocultas separadas
         df_loc = df_partido[df_partido['Equipo'] == eq_local]
         fig_c_loc = plot_cancha(df_loc)
         fig_p_loc = plot_porteria(df_loc)
@@ -517,8 +544,7 @@ def crear_pdf_reporte(partido_nom, eq_local, eq_vis, fig_mom, fig_rad, fig_evo, 
         p_p_loc = os.path.join(tmpdir, "p_loc.png")
         fig_c_loc.savefig(p_c_loc, bbox_inches='tight', facecolor='white', dpi=150)
         fig_p_loc.savefig(p_p_loc, bbox_inches='tight', facecolor='white', dpi=150)
-        plt.close(fig_c_loc)
-        plt.close(fig_p_loc)
+        plt.close(fig_c_loc); plt.close(fig_p_loc)
         
         df_vis = df_partido[df_partido['Equipo'] == eq_vis] if eq_vis else pd.DataFrame()
         if not df_vis.empty:
@@ -528,8 +554,7 @@ def crear_pdf_reporte(partido_nom, eq_local, eq_vis, fig_mom, fig_rad, fig_evo, 
             p_p_vis = os.path.join(tmpdir, "p_vis.png")
             fig_c_vis.savefig(p_c_vis, bbox_inches='tight', facecolor='white', dpi=150)
             fig_p_vis.savefig(p_p_vis, bbox_inches='tight', facecolor='white', dpi=150)
-            plt.close(fig_c_vis)
-            plt.close(fig_p_vis)
+            plt.close(fig_c_vis); plt.close(fig_p_vis)
             
         p_mom = os.path.join(tmpdir, "mom.png")
         p_rad = os.path.join(tmpdir, "rad.png")
@@ -538,6 +563,7 @@ def crear_pdf_reporte(partido_nom, eq_local, eq_vis, fig_mom, fig_rad, fig_evo, 
         if fig_rad: fig_rad.savefig(p_rad, bbox_inches='tight', facecolor='white', dpi=150)
         if fig_evo: fig_evo.savefig(p_evo, bbox_inches='tight', facecolor='white', dpi=150)
 
+        # Constructor de hojas PDF
         def construir_hojas_equipo(team_name, df_team, p_cancha, p_porteria, is_local):
             pdf.add_page()
             pdf.set_font("Arial", "B", 16)
@@ -547,57 +573,69 @@ def crear_pdf_reporte(partido_nom, eq_local, eq_vis, fig_mom, fig_rad, fig_evo, 
             pdf.cell(0, 10, f"Equipo {tipo}: {team_name}", ln=True, align='C')
             pdf.ln(5)
             
-            goles = len(df_team[df_team['Resultado'] == 'Gol'])
-            paradas = len(df_team[df_team['Resultado'] == 'Parada'])
-            fallos = len(df_team[df_team['Resultado'] == 'Fallo'])
-            perdidas = len(df_team[df_team['Resultado'] == 'Perdida'])
-            tiros = goles + paradas + fallos
-            efect = int(round((goles / tiros * 100), 0)) if tiros > 0 else 0
+            g_team = len(df_team[df_team['Resultado'] == 'Gol'])
+            p_team = len(df_team[df_team['Resultado'] == 'Parada'])
+            f_team = len(df_team[df_team['Resultado'] == 'Fallo'])
+            l_team = len(df_team[df_team['Resultado'] == 'Perdida'])
+            t_team = g_team + p_team + f_team
+            e_team = int(round((g_team / t_team * 100), 0)) if t_team > 0 else 0
             
             pdf.set_font("Arial", "B", 12)
             pdf.cell(0, 10, "Estadisticas Colectivas", ln=True)
             pdf.set_font("Arial", "", 11)
-            pdf.cell(0, 8, f"Goles: {goles}  |  Efectividad: {efect}%  |  Tiros Totales: {tiros}", ln=True)
-            pdf.cell(0, 8, f"Perdidas: {perdidas}  |  Fallos: {fallos}  |  Paradas del Rival: {paradas}", ln=True)
-            pdf.ln(10)
+            pdf.cell(0, 8, f"Goles: {g_team}  |  Efectividad: {e_team}%  |  Tiros Totales: {t_team}", ln=True)
+            pdf.cell(0, 8, f"Perdidas: {l_team}  |  Fallos: {f_team}  |  Paradas del Rival: {p_team}", ln=True)
+            pdf.ln(8)
             
             pdf.set_font("Arial", "B", 12)
-            pdf.cell(0, 10, "Rendimiento Individual", ln=True)
+            pdf.cell(0, 10, "Rendimiento Individual Detallado", ln=True)
             pdf.ln(2)
             
             df_jug = df_team[(df_team['Jugador'].notna()) & (df_team['Jugador'] != 'N/A') & (df_team['Jugador'] != '')].copy()
             if not df_jug.empty:
                 df_jug['Jugador'] = df_jug['Jugador'].astype(str)
-                t_gol = df_jug[df_jug['Resultado'] == 'Gol'].groupby('Jugador').size().reset_index(name='Goles')
-                t_tir = df_jug[df_jug['Resultado'].isin(['Gol', 'Fallo', 'Parada'])].groupby('Jugador').size().reset_index(name='Tiros')
-                t_per = df_jug[df_jug['Resultado'] == 'Perdida'].groupby('Jugador').size().reset_index(name='Perdidas')
-                t_san = df_jug[df_jug['Resultado'] == 'Sancion'].groupby('Jugador').size().reset_index(name='Sanciones')
+                t_gol = df_jug[df_jug['Resultado'] == 'Gol'].groupby('Jugador').size().reset_index(name='Gol')
+                t_fal = df_jug[df_jug['Resultado'] == 'Fallo'].groupby('Jugador').size().reset_index(name='Fal')
+                t_atj = df_jug[df_jug['Resultado'] == 'Parada'].groupby('Jugador').size().reset_index(name='Atj')
+                t_per = df_jug[df_jug['Resultado'] == 'Perdida'].groupby('Jugador').size().reset_index(name='Perd')
+                t_ta = df_jug[df_jug['Detalle'].astype(str).str.contains('Amarilla', case=False, na=False)].groupby('Jugador').size().reset_index(name='TA')
+                t_2m = df_jug[df_jug['Detalle'].astype(str).str.contains('2 Min', case=False, na=False)].groupby('Jugador').size().reset_index(name='2M')
+                t_tr = df_jug[df_jug['Detalle'].astype(str).str.contains('Roja', case=False, na=False)].groupby('Jugador').size().reset_index(name='TR')
                 
-                pdf_stats = pd.merge(t_gol, t_tir, on='Jugador', how='outer').fillna(0)
+                pdf_stats = pd.merge(t_gol, t_fal, on='Jugador', how='outer').fillna(0)
+                pdf_stats = pd.merge(pdf_stats, t_atj, on='Jugador', how='outer').fillna(0)
                 pdf_stats = pd.merge(pdf_stats, t_per, on='Jugador', how='outer').fillna(0)
-                pdf_stats = pd.merge(pdf_stats, t_san, on='Jugador', how='outer').fillna(0)
-                pdf_stats[['Goles', 'Tiros', 'Perdidas', 'Sanciones']] = pdf_stats[['Goles', 'Tiros', 'Perdidas', 'Sanciones']].astype(int)
-                pdf_stats['Efectividad (%)'] = np.where(pdf_stats['Tiros'] > 0, (pdf_stats['Goles'] / pdf_stats['Tiros']) * 100, 0.0)
-                pdf_stats['Jugador'] = pdf_stats['Jugador'].apply(lambda x: x.split('.')[0] if x.endswith('.0') else x)
-                pdf_stats = pdf_stats.sort_values(by=['Goles', 'Efectividad (%)'], ascending=[False, False]).reset_index(drop=True)
+                pdf_stats = pd.merge(pdf_stats, t_ta, on='Jugador', how='outer').fillna(0)
+                pdf_stats = pd.merge(pdf_stats, t_2m, on='Jugador', how='outer').fillna(0)
+                pdf_stats = pd.merge(pdf_stats, t_tr, on='Jugador', how='outer').fillna(0)
                 
-                pdf.set_font("Arial", "B", 9)
-                col_widths = [45, 25, 25, 25, 25, 25]
-                headers = ['Jugador', 'Goles', 'Tiros', 'Perdidas', 'Sanciones', 'Efectividad']
-                pdf.set_x(15)
+                pdf_stats['Tir'] = pdf_stats['Gol'] + pdf_stats['Fal'] + pdf_stats['Atj']
+                cols_int = ['Gol', 'Fal', 'Atj', 'Tir', 'Perd', 'TA', '2M', 'TR']
+                pdf_stats[cols_int] = pdf_stats[cols_int].astype(int)
+                pdf_stats['Efect%'] = np.where(pdf_stats['Tir'] > 0, (pdf_stats['Gol'] / pdf_stats['Tir']) * 100, 0.0)
+                pdf_stats['Jugador'] = pdf_stats['Jugador'].apply(lambda x: x.split('.')[0] if x.endswith('.0') else x)
+                pdf_stats = pdf_stats.sort_values(by=['Gol', 'Efect%'], ascending=[False, False]).reset_index(drop=True)
+                
+                # Dibujar Celdas PDF
+                pdf.set_font("Arial", "B", 8)
+                col_widths = [40, 16, 16, 16, 16, 16, 16, 16, 16, 20]
+                headers = ['Jugador', 'Gol', 'Fal', 'Atj', 'Tir', 'Perd', 'TA', '2M', 'TR', 'Efect%']
                 for i, h in enumerate(headers):
                     pdf.cell(col_widths[i], 8, h, border=1, align='C')
                 pdf.ln()
                 
-                pdf.set_font("Arial", "", 9)
+                pdf.set_font("Arial", "", 8)
                 for _, row in pdf_stats.iterrows():
-                    pdf.set_x(15)
                     pdf.cell(col_widths[0], 8, str(row['Jugador'])[:20], border=1, align='C')
-                    pdf.cell(col_widths[1], 8, str(row['Goles']), border=1, align='C')
-                    pdf.cell(col_widths[2], 8, str(row['Tiros']), border=1, align='C')
-                    pdf.cell(col_widths[3], 8, str(row['Perdidas']), border=1, align='C')
-                    pdf.cell(col_widths[4], 8, str(row['Sanciones']), border=1, align='C')
-                    pdf.cell(col_widths[5], 8, f"{row['Efectividad (%)']:.1f}%", border=1, align='C')
+                    pdf.cell(col_widths[1], 8, str(row['Gol']), border=1, align='C')
+                    pdf.cell(col_widths[2], 8, str(row['Fal']), border=1, align='C')
+                    pdf.cell(col_widths[3], 8, str(row['Atj']), border=1, align='C')
+                    pdf.cell(col_widths[4], 8, str(row['Tir']), border=1, align='C')
+                    pdf.cell(col_widths[5], 8, str(row['Perd']), border=1, align='C')
+                    pdf.cell(col_widths[6], 8, str(row['TA']), border=1, align='C')
+                    pdf.cell(col_widths[7], 8, str(row['2M']), border=1, align='C')
+                    pdf.cell(col_widths[8], 8, str(row['TR']), border=1, align='C')
+                    pdf.cell(col_widths[9], 8, f"{row['Efect%']:.1f}%", border=1, align='C')
                     pdf.ln()
             else:
                 pdf.set_font("Arial", "I", 10)
@@ -609,10 +647,12 @@ def crear_pdf_reporte(partido_nom, eq_local, eq_vis, fig_mom, fig_rad, fig_evo, 
             pdf.image(p_cancha, x=10, y=30, w=90)
             pdf.image(p_porteria, x=105, y=30, w=90)
 
+        # Armar hojas por equipo
         construir_hojas_equipo(eq_local, df_loc, p_c_loc, p_p_loc, True)
         if not df_vis.empty and eq_vis:
             construir_hojas_equipo(eq_vis, df_vis, p_c_vis, p_p_vis, False)
 
+        # Página Global
         pdf.add_page()
         pdf.set_font("Arial", "B", 14)
         pdf.cell(0, 10, "ANALISIS COLECTIVO Y EVOLUCION", ln=True, align='C')
@@ -633,26 +673,11 @@ def crear_pdf_reporte(partido_nom, eq_local, eq_vis, fig_mom, fig_rad, fig_evo, 
         pdf.output(pdf_path)
         with open(pdf_path, "rb") as f: return f.read()
 
-# ==========================================
-# SECCIÓN FINAL: CONTROLES DE LA BARRA LATERAL
-# ==========================================
 st.sidebar.divider()
-st.sidebar.markdown("### 🕹️ Control del Tablero")
-# 💡 REQUERIMIENTO 1: El botón de pausa se movió aquí abajo
-estado_vivo = st.sidebar.toggle("🟢 Conexión En Vivo", value=True, help="Apágalo para detener el refresco y generar el PDF.")
-
-if estado_vivo:
-    st_autorefresh(interval=4000, limit=None, key="data_refresh")
-    st.sidebar.info("Actualizando base de datos cada 4 segundos.")
-else:
-    st.sidebar.warning("🔴 Tablero Congelado")
-
-st.sidebar.markdown("### 📥 Exportar Análisis")
-
 if FPDF_DISPONIBLE and partido_actual != "Sin Datos" and not df.empty:
     if not estado_vivo:
         if st.sidebar.button("⚙️ Preparar Reporte PDF"):
-            with st.sidebar.status("Construyendo reporte... esto tomará unos segundos"):
+            with st.sidebar.status("Construyendo reporte..."):
                 pdf_data = crear_pdf_reporte(partido_actual, equipo_local, equipo_visitante, fig_momentum, fig_radar, fig_evolucion, df_partido_actual)
                 st.session_state['pdf_listo'] = pdf_data
                 
