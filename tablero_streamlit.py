@@ -54,7 +54,7 @@ def load_data():
 df_vivo = load_data()
 
 # ==========================================
-# 2. FILTROS EN BARRA LATERAL (En Cascada)
+# 2. FILTROS EN BARRA LATERAL 
 # ==========================================
 st.sidebar.header("Filtros del Partido")
 
@@ -67,25 +67,21 @@ else:
 st.sidebar.markdown(f"**🏆 Partido Actual:** {partido_actual}")
 st.sidebar.divider()
 
-# 💡 NUEVO: Aislamos primero los datos del partido actual para poblar los filtros
 if partido_actual != "Sin Datos":
     df_partido_actual = df_vivo[df_vivo['Partido'].astype(str) == partido_actual]
 else:
     df_partido_actual = pd.DataFrame()
 
 if not df_partido_actual.empty:
-    # 1. Filtro de Equipo (Solo muestra los que juegan hoy)
     lista_equipos = ['Todos'] + [str(x) for x in df_partido_actual['Equipo'].dropna().unique()]
     equipo_sel = st.sidebar.selectbox("1. ¿Quién ataca?", lista_equipos)
     
-    # 💡 LÓGICA EN CASCADA: El filtro de jugadores depende del equipo seleccionado
     if equipo_sel != 'Todos':
         df_para_jugadores = df_partido_actual[df_partido_actual['Equipo'] == equipo_sel]
     else:
         df_para_jugadores = df_partido_actual
         
     jugadores_validos = [str(x) for x in df_para_jugadores['Jugador'].dropna().unique() if str(x) not in ['nan', 'N/A', '']]
-    # Ordenamos numéricamente a los jugadores si es posible
     jugadores_ordenados = sorted(jugadores_validos, key=lambda x: int(float(x)) if x.replace('.','',1).isdigit() else float('inf'))
     lista_jugadores = ['Todos'] + jugadores_ordenados
     
@@ -102,7 +98,6 @@ if not df_partido_actual.empty:
 else:
     equipo_sel, jugador_sel, fase_sel, resultado_sel, lado_sel = 'Todos', 'Todos', 'Todas', 'Todos', 'Todos'
 
-# APLICAR LOS FILTROS SELECCIONADOS
 df = df_partido_actual.copy()
 if not df.empty:
     if equipo_sel != 'Todos': df = df[df['Equipo'] == equipo_sel]
@@ -111,7 +106,6 @@ if not df.empty:
     if resultado_sel != 'Todos': df = df[df['Resultado'] == resultado_sel]
     if lado_sel != 'Todos': df = df[df['Lado'] == lado_sel]
 
-# IDENTIFICADOR MAESTRO DE EQUIPOS (Para Radar y Momentum)
 equipos_totales = df_partido_actual['Equipo'].dropna().unique() if not df_partido_actual.empty else []
 equipo_local = equipos_totales[0] if len(equipos_totales) > 0 else 'Local'
 equipo_visitante = equipos_totales[1] if len(equipos_totales) > 1 else None
@@ -148,7 +142,7 @@ else:
 st.divider()
 
 # ==========================================
-# 4. FUNCIONES DE DIBUJO 
+# 4. FUNCIONES DE DIBUJO (Con Nueva Simbología)
 # ==========================================
 def plot_cancha(df_filtrado):
     fig, ax = plt.subplots(figsize=(6, 8))
@@ -166,15 +160,24 @@ def plot_cancha(df_filtrado):
         df_filtrado['PX'] = df_filtrado['Coord Lado'].apply(lambda x: extraer_coord(x, 0))
         df_filtrado['PY'] = df_filtrado['Coord Lado'].apply(lambda x: extraer_coord(x, 1))
         df_cancha = df_filtrado.dropna(subset=['PX', 'PY'])
+        
     if len(df_cancha) > 0:
         heatmap, xedges, yedges = np.histogram2d(df_cancha['PX'], df_cancha['PY'], bins=100, range=[[0, 100], [0, 100]])
         heatmap = heatmap.T
         heatmap_suave = gaussian_filter(heatmap, sigma=4)
         ax.imshow(heatmap_suave, extent=[0, 100, 100, 0], cmap='inferno', alpha=0.55)
+        
+        # 💡 SIMBOLOGÍA
         goles = df_cancha[df_cancha['Resultado'] == 'Gol']
-        no_goles = df_cancha[df_cancha['Resultado'] != 'Gol']
-        ax.scatter(no_goles['PX'], no_goles['PY'], c='white', marker='X', s=100, alpha=0.9, edgecolors='black')
-        ax.scatter(goles['PX'], goles['PY'], c='#00e676', s=120, edgecolors='black', linewidth=1.5)
+        paradas = df_cancha[df_cancha['Resultado'] == 'Parada']
+        fallos = df_cancha[df_cancha['Resultado'] == 'Fallo']
+        perdidas = df_cancha[df_cancha['Resultado'] == 'Perdida']
+        
+        if len(fallos) > 0: ax.scatter(fallos['PX'], fallos['PY'], c='white', marker='X', s=90, alpha=0.9, edgecolors='black')
+        if len(perdidas) > 0: ax.scatter(perdidas['PX'], perdidas['PY'], c='#d32f2f', marker='D', s=80, alpha=0.9, edgecolors='black')
+        if len(paradas) > 0: ax.scatter(paradas['PX'], paradas['PY'], c='#ff9800', marker='^', s=100, alpha=0.9, edgecolors='black')
+        if len(goles) > 0: ax.scatter(goles['PX'], goles['PY'], c='#00e676', marker='o', s=120, edgecolors='black', linewidth=1.5)
+        
     ax.axis('off')
     return fig
 
@@ -188,12 +191,16 @@ def plot_porteria(df_filtrado):
     df_tiros = pd.DataFrame()
     if not df_filtrado.empty and 'Coord Porteria' in df_filtrado.columns:
         df_tiros = df_filtrado[df_filtrado['Coord Porteria'].notna() & (df_filtrado['Coord Porteria'] != '')].copy()
+        
     if len(df_tiros) > 0:
         df_tiros['PX'] = df_tiros['Coord Porteria'].apply(lambda x: float(str(x).split(',')[0]) if ',' in str(x) else np.nan)
         df_tiros['PY'] = df_tiros['Coord Porteria'].apply(lambda x: float(str(x).split(',')[1]) if ',' in str(x) else np.nan)
         df_tiros = df_tiros.dropna(subset=['PX', 'PY'])
+        
         goles = df_tiros[df_tiros['Resultado'] == 'Gol']
         paradas = df_tiros[df_tiros['Resultado'] == 'Parada']
+        fallos = df_tiros[df_tiros['Resultado'] == 'Fallo']
+        
         tiros_heatmap = df_tiros[df_tiros['Resultado'].isin(['Gol', 'Parada'])]
         if len(tiros_heatmap) > 0:
             heatmap, xedges, yedges = np.histogram2d(tiros_heatmap['PX'], tiros_heatmap['PY'], bins=100, range=[[0, 100], [0, 100]])
@@ -202,8 +209,12 @@ def plot_porteria(df_filtrado):
             if np.max(heatmap_suave) > 0: heatmap_suave = heatmap_suave / np.max(heatmap_suave)
             heatmap_suave[heatmap_suave < 0.05] = np.nan
             ax.imshow(heatmap_suave, extent=[0, 100, 100, 0], cmap='inferno', alpha=0.65)
-        if len(paradas) > 0: ax.scatter(paradas['PX'], paradas['PY'], c='white', marker='X', s=100, alpha=0.9, edgecolors='black')
-        if len(goles) > 0: ax.scatter(goles['PX'], goles['PY'], c='#00e676', s=120, edgecolors='black', linewidth=1.5)
+            
+        # 💡 SIMBOLOGÍA
+        if len(fallos) > 0: ax.scatter(fallos['PX'], fallos['PY'], c='white', marker='X', s=90, alpha=0.9, edgecolors='black')
+        if len(paradas) > 0: ax.scatter(paradas['PX'], paradas['PY'], c='#ff9800', marker='^', s=100, alpha=0.9, edgecolors='black')
+        if len(goles) > 0: ax.scatter(goles['PX'], goles['PY'], c='#00e676', marker='o', s=120, edgecolors='black', linewidth=1.5)
+        
     ax.set_xlim(0, 100)
     ax.set_ylim(100, 0)
     ax.axis('off')
@@ -273,9 +284,6 @@ def plot_momentum(df_all):
     ax_marcador.set_xticks(np.arange(0, eje_x_max + 5, 5))
     return fig
 
-# ==========================================
-# 5. NUEVAS FUNCIONES (Radar y Fatiga)
-# ==========================================
 def plot_radar_avanzado(df_partido, df_historico, eq_local, eq_vis, modo):
     fig, ax = plt.subplots(figsize=(6, 6), subplot_kw=dict(polar=True))
     fig.patch.set_facecolor('white')
@@ -425,6 +433,17 @@ def plot_tendencia_cansancio(df_partido, df_historico, eq_local, modo):
 # ==========================================
 # LAYOUT PRINCIPAL
 # ==========================================
+# 💡 LEYENDA TÁCTICA PARA ENTRENADORES
+st.markdown("""
+<div style='background-color: #1e1e1e; padding: 10px; border-radius: 5px; border: 1px solid #444; margin-bottom: 10px; font-size: 0.9em;'>
+    <b>Simbología de Mapas:</b> &nbsp; 
+    🟢 <b>Goles</b> (Círculos Verdes) &nbsp;|&nbsp; 
+    🔶 <b>Paradas</b> (Triángulos Naranjas) &nbsp;|&nbsp; 
+    ✖️ <b>Fallos</b> (Cruces Blancas) &nbsp;|&nbsp; 
+    ♦️ <b>Pérdidas</b> (Rombos Rojos)
+</div>
+""", unsafe_allow_html=True)
+
 st.markdown("### 📍 Nivel 1: El Espacio (Origen y Destino)")
 col_cancha, col_porteria = st.columns(2) 
 
@@ -462,7 +481,6 @@ df_jugadores = df_base[(df_base['Jugador'].notna()) & (df_base['Jugador'] != 'N/
 if not df_jugadores.empty:
     df_jugadores['Jugador'] = df_jugadores['Jugador'].astype(str)
     
-    # 💡 NUEVO: Agrupamos por Equipo Y Jugador para que nunca se sumen los #3 de distintos equipos
     goles = df_jugadores[df_jugadores['Resultado'] == 'Gol'].groupby(['Equipo', 'Jugador']).size().reset_index(name='Goles')
     tiros = df_jugadores[df_jugadores['Resultado'].isin(['Gol', 'Fallo', 'Parada'])].groupby(['Equipo', 'Jugador']).size().reset_index(name='Tiros')
     perdidas = df_jugadores[df_jugadores['Resultado'] == 'Perdida'].groupby(['Equipo', 'Jugador']).size().reset_index(name='Pérdidas')
