@@ -54,46 +54,65 @@ def load_data():
 df_vivo = load_data()
 
 # ==========================================
-# 2. FILTROS EN BARRA LATERAL 
+# 2. FILTROS EN BARRA LATERAL (En Cascada)
 # ==========================================
 st.sidebar.header("Filtros del Partido")
 
 if not df_vivo.empty:
     partidos_validos = df_vivo['Partido'].dropna().unique().tolist()
     partido_actual = partidos_validos[-1] if partidos_validos else "Sin Datos"
-    
-    lista_equipos = ['Todos'] + [str(x) for x in df_vivo['Equipo'].dropna().unique()]
-    lista_fases = ['Todas'] + [str(x) for x in df_vivo['Fase'].dropna().unique()]
-    lista_resultados = ['Todos'] + [str(x) for x in df_vivo['Resultado'].dropna().unique()]
-    lista_lados = ['Todos'] + [str(x) for x in df_vivo['Lado'].dropna().unique()]
-    jugadores_validos = [str(x) for x in df_vivo['Jugador'].dropna().unique() if str(x) not in ['nan', 'N/A', '']]
-    lista_jugadores = ['Todos'] + sorted(jugadores_validos)
 else:
     partido_actual = "Sin Datos"
-    lista_equipos, lista_fases, lista_resultados, lista_lados, lista_jugadores = ['Todos'], ['Todas'], ['Todos'], ['Todos'], ['Todos']
 
 st.sidebar.markdown(f"**🏆 Partido Actual:** {partido_actual}")
 st.sidebar.divider()
 
-equipo_sel = st.sidebar.selectbox("1. ¿Quién ataca?", lista_equipos)
-jugador_sel = st.sidebar.selectbox("2. Scouting Individual (Jugador)", lista_jugadores)
-fase_sel = st.sidebar.selectbox("3. Fase de Juego", lista_fases)
-resultado_sel = st.sidebar.selectbox("4. ¿Qué pasó?", lista_resultados)
-lado_sel = st.sidebar.selectbox("5. Lado de la Cancha", lista_lados)
+# 💡 NUEVO: Aislamos primero los datos del partido actual para poblar los filtros
+if partido_actual != "Sin Datos":
+    df_partido_actual = df_vivo[df_vivo['Partido'].astype(str) == partido_actual]
+else:
+    df_partido_actual = pd.DataFrame()
 
-# Filtrado reactivo para la parte superior
-df = df_vivo.copy()
-if not df.empty and partido_actual != "Sin Datos":
-    df = df[df['Partido'].astype(str) == partido_actual]
+if not df_partido_actual.empty:
+    # 1. Filtro de Equipo (Solo muestra los que juegan hoy)
+    lista_equipos = ['Todos'] + [str(x) for x in df_partido_actual['Equipo'].dropna().unique()]
+    equipo_sel = st.sidebar.selectbox("1. ¿Quién ataca?", lista_equipos)
+    
+    # 💡 LÓGICA EN CASCADA: El filtro de jugadores depende del equipo seleccionado
+    if equipo_sel != 'Todos':
+        df_para_jugadores = df_partido_actual[df_partido_actual['Equipo'] == equipo_sel]
+    else:
+        df_para_jugadores = df_partido_actual
+        
+    jugadores_validos = [str(x) for x in df_para_jugadores['Jugador'].dropna().unique() if str(x) not in ['nan', 'N/A', '']]
+    # Ordenamos numéricamente a los jugadores si es posible
+    jugadores_ordenados = sorted(jugadores_validos, key=lambda x: int(float(x)) if x.replace('.','',1).isdigit() else float('inf'))
+    lista_jugadores = ['Todos'] + jugadores_ordenados
+    
+    jugador_sel = st.sidebar.selectbox("2. Scouting Individual", lista_jugadores)
+    
+    lista_fases = ['Todas'] + [str(x) for x in df_partido_actual['Fase'].dropna().unique()]
+    fase_sel = st.sidebar.selectbox("3. Fase de Juego", lista_fases)
+    
+    lista_resultados = ['Todos'] + [str(x) for x in df_partido_actual['Resultado'].dropna().unique()]
+    resultado_sel = st.sidebar.selectbox("4. ¿Qué pasó?", lista_resultados)
+    
+    lista_lados = ['Todos'] + [str(x) for x in df_partido_actual['Lado'].dropna().unique()]
+    lado_sel = st.sidebar.selectbox("5. Lado de la Cancha", lista_lados)
+else:
+    equipo_sel, jugador_sel, fase_sel, resultado_sel, lado_sel = 'Todos', 'Todos', 'Todas', 'Todos', 'Todos'
+
+# APLICAR LOS FILTROS SELECCIONADOS
+df = df_partido_actual.copy()
+if not df.empty:
     if equipo_sel != 'Todos': df = df[df['Equipo'] == equipo_sel]
     if jugador_sel != 'Todos': df = df[df['Jugador'].astype(str) == jugador_sel]
     if fase_sel != 'Todas': df = df[df['Fase'] == fase_sel]
     if resultado_sel != 'Todos': df = df[df['Resultado'] == resultado_sel]
     if lado_sel != 'Todos': df = df[df['Lado'] == lado_sel]
 
-# 💡 IDENTIFICADOR MAESTRO DE EQUIPOS (Ignora si filtraste al visitante)
-df_partido_completo = df_vivo[df_vivo['Partido'].astype(str) == partido_actual]
-equipos_totales = df_partido_completo['Equipo'].dropna().unique() if not df_partido_completo.empty else []
+# IDENTIFICADOR MAESTRO DE EQUIPOS (Para Radar y Momentum)
+equipos_totales = df_partido_actual['Equipo'].dropna().unique() if not df_partido_actual.empty else []
 equipo_local = equipos_totales[0] if len(equipos_totales) > 0 else 'Local'
 equipo_visitante = equipos_totales[1] if len(equipos_totales) > 1 else None
 
@@ -262,7 +281,6 @@ def plot_radar_avanzado(df_partido, df_historico, eq_local, eq_vis, modo):
     fig.patch.set_facecolor('white')
     ax.set_facecolor('#f8f9fa')
 
-    # 💡 ESCUDO ANTI-ERRORES: Si no hay datos o filtraste al visitante
     if df_partido.empty or eq_local not in df_partido['Equipo'].values:
         ax.text(0.5, 0.5, f'Sin datos suficientes del Local\nen el filtro actual', ha='center', va='center', color='gray')
         ax.axis('off')
@@ -338,7 +356,6 @@ def plot_tendencia_cansancio(df_partido, df_historico, eq_local, modo):
     fig.patch.set_facecolor('white')
     ax.set_facecolor('#f8f9fa')
     
-    # 💡 ESCUDO ANTI-ERRORES
     if df_partido.empty or eq_local not in df_partido['Equipo'].values:
         ax.text(0.5, 0.5, f'Sin datos suficientes del Local\nen el filtro actual', ha='center', va='center', color='gray')
         ax.axis('off')
@@ -354,7 +371,6 @@ def plot_tendencia_cansancio(df_partido, df_historico, eq_local, modo):
             return m
         except: return 0
         
-    # Calcular métricas de HOY
     df_hoy = df_partido[df_partido['Equipo'] == eq_local].copy()
     df_hoy['Minuto'] = df_hoy.apply(get_minuto, axis=1)
     bins = [0, 10, 20, 30, 40, 50, 60, 100]
@@ -370,11 +386,9 @@ def plot_tendencia_cansancio(df_partido, df_historico, eq_local, modo):
     
     color_gol = '#00e676' if 'MEX' in eq_local.upper() or 'CITRON' in eq_local.upper() else '#1565c0'
     
-    # Dibujar SIEMPRE las barras de Hoy
     ax.bar(x - width/2, df_plot_hoy['Goles'], width, label='Goles (Hoy)', color=color_gol, edgecolor='black')
     ax.bar(x + width/2, df_plot_hoy['Pérdidas'], width, label='Pérdidas (Hoy)', color='#d32f2f', edgecolor='black')
     
-    # 💡 LÓGICA HÍBRIDA: Si eliges histórico, se dibujan líneas punteadas encima
     if modo == "Nuestra Historia":
         partidos_local = df_historico[df_historico['Equipo'] == eq_local]['Partido'].unique()
         divisor = len(partidos_local) if len(partidos_local) > 0 else 1
@@ -448,16 +462,16 @@ df_jugadores = df_base[(df_base['Jugador'].notna()) & (df_base['Jugador'] != 'N/
 if not df_jugadores.empty:
     df_jugadores['Jugador'] = df_jugadores['Jugador'].astype(str)
     
-    goles = df_jugadores[df_jugadores['Resultado'] == 'Gol'].groupby('Jugador').size().reset_index(name='Goles')
-    tiros = df_jugadores[df_jugadores['Resultado'].isin(['Gol', 'Fallo', 'Parada'])].groupby('Jugador').size().reset_index(name='Tiros')
-    perdidas = df_jugadores[df_jugadores['Resultado'] == 'Perdida'].groupby('Jugador').size().reset_index(name='Pérdidas')
-    sanciones = df_jugadores[df_jugadores['Resultado'] == 'Sancion'].groupby('Jugador').size().reset_index(name='Sanciones')
+    # 💡 NUEVO: Agrupamos por Equipo Y Jugador para que nunca se sumen los #3 de distintos equipos
+    goles = df_jugadores[df_jugadores['Resultado'] == 'Gol'].groupby(['Equipo', 'Jugador']).size().reset_index(name='Goles')
+    tiros = df_jugadores[df_jugadores['Resultado'].isin(['Gol', 'Fallo', 'Parada'])].groupby(['Equipo', 'Jugador']).size().reset_index(name='Tiros')
+    perdidas = df_jugadores[df_jugadores['Resultado'] == 'Perdida'].groupby(['Equipo', 'Jugador']).size().reset_index(name='Pérdidas')
+    sanciones = df_jugadores[df_jugadores['Resultado'] == 'Sancion'].groupby(['Equipo', 'Jugador']).size().reset_index(name='Sanciones')
     
-    stats = pd.merge(goles, tiros, on='Jugador', how='outer').fillna(0)
-    stats = pd.merge(stats, perdidas, on='Jugador', how='outer').fillna(0)
-    stats = pd.merge(stats, sanciones, on='Jugador', how='outer').fillna(0)
+    stats = pd.merge(goles, tiros, on=['Equipo', 'Jugador'], how='outer').fillna(0)
+    stats = pd.merge(stats, perdidas, on=['Equipo', 'Jugador'], how='outer').fillna(0)
+    stats = pd.merge(stats, sanciones, on=['Equipo', 'Jugador'], how='outer').fillna(0)
     
-    # 💡 LÓGICA DE FORMATOS CON DECIMALES EXACTOS
     if vista_tabla == "Partido Actual":
         stats[['Goles', 'Tiros', 'Pérdidas', 'Sanciones']] = stats[['Goles', 'Tiros', 'Pérdidas', 'Sanciones']].astype(int)
         format_dict = {'Goles': '{:.0f}', 'Tiros': '{:.0f}', 'Pérdidas': '{:.0f}', 'Sanciones': '{:.0f}', 'Efectividad (%)': '{:.1f}'}
@@ -469,9 +483,8 @@ if not df_jugadores.empty:
             
     stats['Efectividad (%)'] = np.where(stats['Tiros'] > 0, (stats['Goles'] / stats['Tiros']) * 100, 0.0)
     stats['Jugador'] = stats['Jugador'].apply(lambda x: x.split('.')[0] if x.endswith('.0') else x)
-    stats = stats.sort_values(by=['Goles', 'Efectividad (%)'], ascending=[False, False]).reset_index(drop=True)
+    stats = stats.sort_values(by=['Equipo', 'Goles', 'Efectividad (%)'], ascending=[False, False, False]).reset_index(drop=True)
     
-    # Aplicar el diccionario de formato a la visualización
     st.dataframe(
         stats.style.format(format_dict)
                    .background_gradient(subset=['Efectividad (%)'], cmap='Greens')
