@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 import time
 from matplotlib.ticker import MaxNLocator
 
-# 💡 NUEVO: Importaciones para el Generador de PDF
+# 💡 Importaciones para el Generador de PDF
 try:
     from fpdf import FPDF
     import tempfile
@@ -43,13 +43,23 @@ def obtener_url_csv(url):
 URL_OFICIAL = obtener_url_csv(URL_USUARIO)
 
 # ==========================================
-# 0. AUTO-REFRESCO
+# 0. CONTROL DE FLUJO (FREEZE MODE)
 # ==========================================
-st_autorefresh(interval=4000, limit=None, key="data_refresh")
+st.sidebar.markdown("### 🕹️ Control del Tablero")
+# Botón para pausar el refresco
+estado_vivo = st.sidebar.toggle("🟢 Conexión En Vivo", value=True, help="Apágalo para leer con calma o descargar reportes.")
+
+if estado_vivo:
+    st_autorefresh(interval=4000, limit=None, key="data_refresh")
+    st.sidebar.info("Actualizando cada 4 seg.")
+else:
+    st.sidebar.warning("🔴 Tablero Congelado")
 
 # ==========================================
 # 1. CONEXIÓN A DATOS 
 # ==========================================
+# Usar st.cache_data para retener los datos si el tablero se pausa
+@st.cache_data(ttl=3 if estado_vivo else 3600)
 def load_data():
     try:
         conector = "&" if "?" in URL_OFICIAL else "?"
@@ -434,76 +444,15 @@ def plot_tendencia_cansancio(df_partido, df_historico, eq_local, modo):
     plt.subplots_adjust(bottom=0.25)
     return fig
 
-
-# ==========================================
-# MOTOR GENERADOR DE PDF (LÓGICA AISLADA)
-# ==========================================
-def crear_pdf_reporte(partido_nom, eq_local, fig1, fig2, fig3, fig4, fig5, dict_stats):
-    pdf = FPDF()
-    pdf.set_auto_page_break(auto=True, margin=15)
-    
-    # Pagina 1
-    pdf.add_page()
-    pdf.set_font("Arial", "B", 16)
-    pdf.cell(0, 10, f"REPORTE TACTICO: {partido_nom}", ln=True, align='C')
-    pdf.set_font("Arial", "", 12)
-    pdf.cell(0, 10, f"Equipo Principal: {eq_local}", ln=True, align='C')
-    pdf.ln(5)
-    
-    pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 10, "Metricas Principales", ln=True)
-    pdf.set_font("Arial", "", 11)
-    pdf.cell(0, 8, f"Goles: {dict_stats['goles']}  |  Efectividad: {dict_stats['efect']}%  |  Tiros Totales: {dict_stats['tiros']}", ln=True)
-    pdf.cell(0, 8, f"Perdidas: {dict_stats['perd']}  |  Fallos: {dict_stats['fallos']}  |  Paradas del Rival: {dict_stats['paradas']}", ln=True)
-    pdf.ln(5)
-    
-    with tempfile.TemporaryDirectory() as tmpdir:
-        p1 = os.path.join(tmpdir, "1.png"); p2 = os.path.join(tmpdir, "2.png"); p3 = os.path.join(tmpdir, "3.png")
-        p4 = os.path.join(tmpdir, "4.png"); p5 = os.path.join(tmpdir, "5.png")
-        
-        # Guardar imágenes de las gráficas en la carpeta temporal
-        fig1.savefig(p1, bbox_inches='tight', facecolor='white')
-        fig2.savefig(p2, bbox_inches='tight', facecolor='white')
-        if fig3: fig3.savefig(p3, bbox_inches='tight', facecolor='white')
-        fig4.savefig(p4, bbox_inches='tight', facecolor='white')
-        fig5.savefig(p5, bbox_inches='tight', facecolor='white')
-        
-        if fig3:
-            pdf.set_font("Arial", "B", 12)
-            pdf.cell(0, 10, "1. Flujo del Partido (Momentum)", ln=True)
-            pdf.image(p3, x=10, w=190)
-        
-        # Pagina 2
-        pdf.add_page()
-        pdf.set_font("Arial", "B", 12)
-        pdf.cell(0, 10, "2. El Espacio (Origen y Destino)", ln=True)
-        pdf.image(p1, x=10, y=30, w=90)
-        pdf.image(p2, x=105, y=30, w=90)
-        
-        # Pagina 3
-        pdf.add_page()
-        pdf.set_font("Arial", "B", 12)
-        pdf.cell(0, 10, "3. Toma de Decisiones y Fatiga Tactica", ln=True)
-        pdf.image(p4, x=10, y=30, w=90)
-        pdf.image(p5, x=105, y=30, w=90)
-        
-        # 💡 NUEVO: Guardar el PDF como archivo físico antes de leerlo para evitar errores del navegador
-        pdf_path = os.path.join(tmpdir, "reporte_final.pdf")
-        pdf.output(pdf_path)
-        
-        with open(pdf_path, "rb") as f:
-            pdf_bytes = f.read()
-            
-    return pdf_bytes
-
-
-# Generamos las figuras y las guardamos en variables para usarlas en el Dashboard y en el PDF
+# Generamos las figuras 
 fig_cancha = plot_cancha(df)
 fig_porteria = plot_porteria(df)
 fig_momentum = plot_momentum(df) if not df.empty else None
+fig_radar = None
+fig_evolucion = None
 
 # ==========================================
-# LAYOUT PRINCIPAL (UI Front-End)
+# LAYOUT PRINCIPAL
 # ==========================================
 st.markdown("""
 <div style='background-color: #1e1e1e; padding: 10px; border-radius: 5px; border: 1px solid #444; margin-bottom: 10px; font-size: 0.9em;'>
@@ -570,29 +519,63 @@ else:
     
 with st.expander("Ver Base de Datos Cruda"): st.dataframe(df)
 
+# ==========================================
+# EXPORTACIÓN PDF (Solo al Pausar)
+# ==========================================
+def crear_pdf_reporte(partido_nom, eq_local, fig1, fig2, fig3, fig4, fig5, dict_stats):
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+    pdf.set_font("Arial", "B", 16)
+    pdf.cell(0, 10, f"REPORTE TACTICO: {partido_nom}", ln=True, align='C')
+    pdf.set_font("Arial", "", 12)
+    pdf.cell(0, 10, f"Equipo Principal: {eq_local}", ln=True, align='C')
+    pdf.ln(5)
+    
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 10, "Metricas Principales", ln=True)
+    pdf.set_font("Arial", "", 11)
+    pdf.cell(0, 8, f"Goles: {dict_stats['goles']}  |  Efectividad: {dict_stats['efect']}%  |  Tiros Totales: {dict_stats['tiros']}", ln=True)
+    pdf.cell(0, 8, f"Perdidas: {dict_stats['perd']}  |  Fallos: {dict_stats['fallos']}  |  Paradas del Rival: {dict_stats['paradas']}", ln=True)
+    pdf.ln(5)
+    
+    with tempfile.TemporaryDirectory() as tmpdir:
+        p1 = os.path.join(tmpdir, "1.png"); p2 = os.path.join(tmpdir, "2.png"); p3 = os.path.join(tmpdir, "3.png")
+        p4 = os.path.join(tmpdir, "4.png"); p5 = os.path.join(tmpdir, "5.png")
+        
+        fig1.savefig(p1, bbox_inches='tight', facecolor='white')
+        fig2.savefig(p2, bbox_inches='tight', facecolor='white')
+        if fig3: fig3.savefig(p3, bbox_inches='tight', facecolor='white')
+        fig4.savefig(p4, bbox_inches='tight', facecolor='white')
+        fig5.savefig(p5, bbox_inches='tight', facecolor='white')
+        
+        if fig3:
+            pdf.set_font("Arial", "B", 12)
+            pdf.cell(0, 10, "1. Flujo del Partido (Momentum)", ln=True)
+            pdf.image(p3, x=10, w=190)
+        
+        pdf.add_page()
+        pdf.set_font("Arial", "B", 12)
+        pdf.cell(0, 10, "2. El Espacio (Origen y Destino)", ln=True)
+        pdf.image(p1, x=10, y=30, w=90)
+        pdf.image(p2, x=105, y=30, w=90)
+        
+        pdf.add_page()
+        pdf.set_font("Arial", "B", 12)
+        pdf.cell(0, 10, "3. Toma de Decisiones y Fatiga Tactica", ln=True)
+        pdf.image(p4, x=10, y=30, w=90)
+        pdf.image(p5, x=105, y=30, w=90)
+        
+        pdf_path = os.path.join(tmpdir, "reporte.pdf")
+        pdf.output(pdf_path)
+        with open(pdf_path, "rb") as f: return f.read()
 
-# ==========================================
-# CONTROL DE EXPORTACIÓN (BARRA LATERAL)
-# ==========================================
 st.sidebar.divider()
 st.sidebar.markdown("### 📥 Exportar Análisis")
 
 if FPDF_DISPONIBLE and partido_actual != "Sin Datos" and not df.empty:
-    
-    # Botón 1: Manda a construir el archivo a la memoria (Solo ocurre si tú le das clic)
-    if st.sidebar.button("⚙️ Preparar Reporte PDF"):
-        with st.sidebar.status("Construyendo reporte... esto tomará unos 3 segundos"):
-            pdf_data = crear_pdf_reporte(partido_actual, equipo_local, fig_cancha, fig_porteria, fig_momentum, fig_radar, fig_evolucion, stats_locales)
-            st.session_state['pdf_listo'] = pdf_data
-            
-    # Botón 2: El archivo ya está listo para descargarse al instante
-    if 'pdf_listo' in st.session_state:
-        st.sidebar.download_button(
-            label="⬇️ Descargar PDF Ahora", 
-            data=st.session_state['pdf_listo'], 
-            file_name=f"Reporte_{partido_actual}.pdf", 
-            mime="application/pdf"
-        )
-        
-elif not FPDF_DISPONIBLE:
-    st.sidebar.warning("⚠️ Instala 'fpdf' en tu requirements.txt para habilitar la descarga en PDF.")
+    if not estado_vivo:
+        pdf_bytes = crear_pdf_reporte(partido_actual, equipo_local, fig_cancha, fig_porteria, fig_momentum, fig_radar, fig_evolucion, stats_locales)
+        st.sidebar.download_button(label="⬇️ Descargar PDF del Partido", data=pdf_bytes, file_name=f"Reporte_{partido_actual}.pdf", mime="application/pdf")
+    else:
+        st.sidebar.info("Para descargar el PDF, pausa el tablero arriba (🟢 Conexión En Vivo -> 🔴 Tablero Congelado).")
