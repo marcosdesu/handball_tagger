@@ -37,9 +37,14 @@ def cargar_imagen(ruta):
 IMG_CANCHA = cargar_imagen(IMAGEN_CANCHA)
 IMG_PORTERIA = cargar_imagen(IMAGEN_PORTERIA)
 
+# Lógica del botón de pausa conectada al fondo
 if 'freeze_toggle' not in st.session_state:
     st.session_state['freeze_toggle'] = True
 estado_vivo = st.session_state['freeze_toggle']
+
+# Memoria Anticaídas
+if 'df_backup' not in st.session_state:
+    st.session_state['df_backup'] = pd.DataFrame()
 
 # ==========================================
 # 🚨 ENLACE DE TU GOOGLE SHEET 
@@ -64,20 +69,28 @@ if estado_vivo:
     st_autorefresh(interval=8000, limit=None, key="data_refresh")
 
 # ==========================================
-# 1. CONEXIÓN A DATOS 
+# 1. CONEXIÓN A DATOS (CON SISTEMA ANTICAÍDAS)
 # ==========================================
 @st.cache_data(ttl=5 if estado_vivo else 3600)
 def load_data():
     try:
         conector = "&" if "?" in URL_OFICIAL else "?"
-        url_nocache = f"{URL_OFICIAL}{conector}_t={int(time.time())}"
+        # Reduce la frecuencia del timestamp para aprovechar el caché y no saturar Google
+        url_nocache = f"{URL_OFICIAL}{conector}_t={int(time.time() // 8)}"
         df_temp = pd.read_csv(url_nocache)
         df_temp = df_temp.dropna(how='all')
         return df_temp
     except Exception as e:
-        return pd.DataFrame(columns=['Partido', 'Tiempo', 'Periodo', 'Equipo', 'Jugador', 'Fase', 'Resultado', 'Detalle', 'Lado', 'Coord Lado', 'Zona', 'Coord Porteria'])
+        return pd.DataFrame() # Si Google falla, devuelve vacío para usar el Backup
 
-df_vivo = load_data()
+df_fresh = load_data()
+
+# 💡 SISTEMA ANTICAÍDAS: Si no hay internet o Google tarda, usamos el historial guardado
+if not df_fresh.empty:
+    st.session_state['df_backup'] = df_fresh.copy()
+    df_vivo = df_fresh
+else:
+    df_vivo = st.session_state['df_backup']
 
 # ==========================================
 # 2. FILTROS EN BARRA LATERAL (ARRIBA)
@@ -123,7 +136,7 @@ else:
 
 df = df_partido_actual.copy()
 if not df.empty:
-    df['Equipo'] = df['Equipo'].astype(str).str.strip() # Limpiar espacios fantasma
+    df['Equipo'] = df['Equipo'].astype(str).str.strip()
     if equipo_sel != 'Todos': df = df[df['Equipo'] == equipo_sel]
     if jugador_sel != 'Todos': df = df[df['Jugador'].astype(str) == jugador_sel]
     if fase_sel != 'Todas': df = df[df['Fase'] == fase_sel]
@@ -170,11 +183,13 @@ else:
 st.divider()
 
 # ==========================================
-# 4. FUNCIONES DE DIBUJO 
+# 4. FUNCIONES DE DIBUJO ORIENTADAS A OBJETOS (Blindadas)
 # ==========================================
 def plot_cancha(df_filtrado):
-    fig, ax = plt.subplots(figsize=(6, 8))
+    fig = plt.figure(figsize=(6, 8))
     fig.patch.set_facecolor('white') 
+    ax = fig.add_subplot(111)
+    
     if IMG_CANCHA is not None: ax.imshow(IMG_CANCHA, extent=[0, 100, 100, 0])
     else: ax.set_facecolor('white')
     
@@ -216,8 +231,10 @@ def plot_cancha(df_filtrado):
     return fig
 
 def plot_porteria(df_filtrado):
-    fig, ax = plt.subplots(figsize=(9, 4.5))
+    fig = plt.figure(figsize=(9, 4.5))
     fig.patch.set_facecolor('white') 
+    ax = fig.add_subplot(111)
+    
     if IMG_PORTERIA is not None: ax.imshow(IMG_PORTERIA, extent=[0, 100, 100, 0])
     else: ax.set_facecolor('white')
     
@@ -277,12 +294,9 @@ def plot_momentum(df_all):
     for _, row in goles_df.iterrows():
         t = row['match_min']
         eq = str(row['Equipo']).strip()
-        if eq == equipo_local: 
-            marcador_L += 1; racha_L += 1; racha_V = 0
-        elif eq == equipo_visitante: 
-            marcador_V += 1; racha_V += 1; racha_L = 0
+        if eq == equipo_local: marcador_L += 1; racha_L += 1; racha_V = 0
+        elif eq == equipo_visitante: marcador_V += 1; racha_V += 1; racha_L = 0
 
-        # 💡 LÓGICA DE MOMENTUM CORREGIDA: Cada gol dibuja barra, mostrando AMBOS equipos visualmente.
         if racha_L > 0: mom_val = racha_L
         elif racha_V > 0: mom_val = -racha_V
         else: mom_val = 0
@@ -295,8 +309,11 @@ def plot_momentum(df_all):
     t_arr = np.array(t_eventos); mom_arr = np.array(momentum)
     mom_positivo = np.where(mom_arr > 0, mom_arr, 0); mom_negativo = np.where(mom_arr < 0, mom_arr, 0)
 
-    fig, (ax_marcador, ax_momentum) = plt.subplots(2, 1, figsize=(14, 5), gridspec_kw={'height_ratios': [2, 1]}, sharex=True)
+    fig = plt.figure(figsize=(14, 5))
     fig.patch.set_facecolor('white') 
+    gs = fig.add_gridspec(2, 1, height_ratios=[2, 1], hspace=0.05)
+    ax_marcador = fig.add_subplot(gs[0])
+    ax_momentum = fig.add_subplot(gs[1], sharex=ax_marcador)
     
     ax_marcador.step(t_arr, score_loc, where='post', color=color_loc, linewidth=3, label=equipo_local)
     ax_marcador.step(t_arr, score_vis, where='post', color=color_vis, linewidth=3, label=equipo_visitante if equipo_visitante else 'Visitante')
@@ -304,7 +321,6 @@ def plot_momentum(df_all):
     ax_marcador.set_ylabel('Goles', fontsize=10, fontweight='bold')
     ax_marcador.grid(True, linestyle='--', alpha=0.4); ax_marcador.legend(fontsize=10, loc='upper left')
 
-    # 💡 LEYENDAS EXPLÍCITAS EN LA GRÁFICA DE MOMENTUM
     ax_momentum.fill_between(t_arr, 0, mom_positivo, step='post', facecolor=color_loc, alpha=0.7, label=f'Momentum {equipo_local}')
     ax_momentum.fill_between(t_arr, 0, mom_negativo, step='post', facecolor=color_vis, alpha=0.7, label=f'Momentum {equipo_visitante if equipo_visitante else "Visitante"}')
     ax_momentum.axvline(x=30, color='black', linestyle='--', alpha=0.5); ax_momentum.axhline(y=0, color='black', linewidth=1, alpha=0.8)
@@ -323,8 +339,9 @@ def plot_momentum(df_all):
     return fig
 
 def plot_radar_avanzado(df_partido, df_historico, eq_local, eq_vis, modo):
-    fig, ax = plt.subplots(figsize=(6, 6), subplot_kw=dict(polar=True))
+    fig = plt.figure(figsize=(6, 6))
     fig.patch.set_facecolor('white')
+    ax = fig.add_subplot(111, polar=True)
     ax.set_facecolor('#f8f9fa')
 
     if df_partido.empty or eq_local not in df_partido['Equipo'].values:
@@ -393,8 +410,9 @@ def plot_radar_avanzado(df_partido, df_historico, eq_local, eq_vis, modo):
     return fig
 
 def plot_tendencia_cansancio(df_partido, df_historico, eq_local, modo):
-    fig, ax = plt.subplots(figsize=(6, 5))
+    fig = plt.figure(figsize=(6, 5))
     fig.patch.set_facecolor('white')
+    ax = fig.add_subplot(111)
     ax.set_facecolor('#f8f9fa')
     
     if df_partido.empty or eq_local not in df_partido['Equipo'].values:
@@ -461,7 +479,7 @@ def plot_tendencia_cansancio(df_partido, df_historico, eq_local, modo):
     plt.subplots_adjust(bottom=0.25)
     return fig
 
-# 💡 GENERACIÓN DE GRÁFICOS UI DE MANERA SEGURA PARA LA MEMORIA
+# Generamos las gráficas macro y micro
 fig_cancha = plot_cancha(df)
 fig_porteria = plot_porteria(df)
 fig_momentum = plot_momentum(df_partido_actual) if not df_partido_actual.empty else None
