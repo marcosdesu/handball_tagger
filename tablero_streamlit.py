@@ -77,7 +77,6 @@ def load_data():
         df_temp = pd.read_csv(url_nocache)
         df_temp = df_temp.dropna(how='all')
         
-        # 💡 SOLUCIÓN MAESTRA: Limpiamos los espacios "fantasma" de Excel de raíz
         if 'Equipo' in df_temp.columns:
             df_temp['Equipo'] = df_temp['Equipo'].astype(str).str.strip()
         if 'Jugador' in df_temp.columns:
@@ -356,7 +355,6 @@ def plot_radar_avanzado(df_partido, df_historico, eq_local, eq_vis, modo):
     angulos += angulos[:1]
 
     def get_metrics(df_team, df_rival):
-        # 💡 FIX HISTÓRICO: Calculamos las sanciones PROMEDIO por partido
         n_partidos = df_team['Partido'].nunique()
         if n_partidos == 0: n_partidos = 1
 
@@ -369,16 +367,13 @@ def plot_radar_avanzado(df_partido, df_historico, eq_local, eq_vis, modo):
         perd = len(df_team[df_team['Resultado'] == 'Perdida'])
         pos = t + perd
         seguridad = (t / pos * 100) if pos > 0 else 0
-        
         sanc = len(df_team[df_team['Resultado'] == 'Sancion'])
         sanc_avg = sanc / n_partidos
         disciplina = max(0, 100 - (sanc_avg * 10))
-        
         df_trans = df_team[df_team['Fase'].astype(str).str.contains('Transicion', case=False, na=False)]
         g_trans = len(df_trans[df_trans['Resultado'] == 'Gol'])
         acc_trans = len(df_trans)
         transicion = (g_trans / acc_trans * 100) if acc_trans > 0 else 0
-        
         vals = [efect, solidez, seguridad, disciplina, transicion]
         vals += vals[:1]
         return vals
@@ -392,11 +387,13 @@ def plot_radar_avanzado(df_partido, df_historico, eq_local, eq_vis, modo):
 
     if modo == "El Rival de Hoy":
         vals_vis_actual = get_metrics(df_vis_actual, df_loc_actual)
-        ax.plot(angulos, vals_loc_actual, color=color_loc, linewidth=2.5, label=str(eq_local))
+        
+        # Rellenos (Capas base)
+        ax.fill(angulos, vals_vis_actual, color=color_vis, alpha=0.2)
         ax.fill(angulos, vals_loc_actual, color=color_loc, alpha=0.3)
-        if eq_vis:
-            ax.plot(angulos, vals_vis_actual, color=color_vis, linewidth=2, label=str(eq_vis))
-            ax.fill(angulos, vals_vis_actual, color=color_vis, alpha=0.2)
+        # Líneas (Capas superiores)
+        if eq_vis: ax.plot(angulos, vals_vis_actual, color=color_vis, linewidth=2, label=str(eq_vis))
+        ax.plot(angulos, vals_loc_actual, color=color_loc, linewidth=2.5, label=str(eq_local))
         ax.set_title(f'Rendimiento: {eq_local} vs {eq_vis}', fontweight='bold', pad=20)
     else:
         partidos_local = df_historico[df_historico['Equipo'] == eq_local]['Partido'].unique()
@@ -404,10 +401,17 @@ def plot_radar_avanzado(df_partido, df_historico, eq_local, eq_vis, modo):
         df_hist_riv = df_historico[(df_historico['Partido'].isin(partidos_local)) & (df_historico['Equipo'] != eq_local)]
         vals_loc_hist = get_metrics(df_hist_loc, df_hist_riv)
         
-        ax.plot(angulos, vals_loc_hist, color='#9e9e9e', linewidth=2, linestyle='--', label='Promedio Histórico')
+        # 💡 SOLUCIÓN DE CAPAS (Z-INDEX): Primero se rellenan las áreas...
         ax.fill(angulos, vals_loc_hist, color='#9e9e9e', alpha=0.2)
-        ax.plot(angulos, vals_loc_actual, color=color_loc, linewidth=2.5, label=f'{eq_local} (Hoy)')
         ax.fill(angulos, vals_loc_actual, color=color_loc, alpha=0.4)
+        
+        # ...Luego dibujamos la línea verde del partido de hoy...
+        ax.plot(angulos, vals_loc_actual, color=color_loc, linewidth=2.5, label=f'{eq_local} (Hoy)')
+        
+        # ...¡Y HASTA ARRIBA DE TODO, con un color oscuro y punteado, la línea Histórica!
+        # Así siempre se verá, incluso si los datos son clones perfectos.
+        ax.plot(angulos, vals_loc_hist, color='#424242', linewidth=2, linestyle='--', zorder=10, label='Promedio Histórico')
+        
         ax.set_title(f'Desempeño de {eq_local} vs Su Historia', fontweight='bold', pad=20)
 
     ax.set_ylim(0, 100)
@@ -470,8 +474,8 @@ def plot_tendencia_cansancio(df_partido, df_historico, eq_local, modo):
             
             df_plot_hist = pd.DataFrame({'Goles': goles_hist, 'Pérdidas': perdidas_hist}).reindex(labels[:6]).fillna(0)
             
-            ax.plot(x - width/2, df_plot_hist['Goles'], color='black', marker='o', linestyle='dashed', linewidth=2, label='Promedio Hist. Goles')
-            ax.plot(x + width/2, df_plot_hist['Pérdidas'], color='black', marker='X', linestyle='dashed', linewidth=2, label='Promedio Hist. Pérdidas')
+            ax.plot(x - width/2, df_plot_hist['Goles'], color='black', marker='o', linestyle='dashed', linewidth=2, label='Promedio Hist. Goles', zorder=10)
+            ax.plot(x + width/2, df_plot_hist['Pérdidas'], color='black', marker='X', linestyle='dashed', linewidth=2, label='Promedio Hist. Pérdidas', zorder=10)
             titulo = f'Evolución: Hoy vs Promedio Histórico ({eq_local})'
         else:
             titulo = f'Fatiga Táctica: {eq_local} (Hoy)'
@@ -585,7 +589,7 @@ if not df_jugadores.empty:
         use_container_width=True
     )
 else:
-    st.info("Esperando datos individuales...")
+    st.info("Esperando datos de rendimiento...")
     
 plt.close('all')
 
