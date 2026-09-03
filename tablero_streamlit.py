@@ -19,13 +19,18 @@ except ImportError:
     FPDF_DISPONIBLE = False
 
 # ==========================================
-# CONFIGURACIÓN DE LA PÁGINA
+# CONFIGURACIÓN DE LA PÁGINA Y MEMORIA
 # ==========================================
 st.set_page_config(page_title="Tablero Handball Live", layout="wide")
 st.title("Análisis Táctico 🤾‍♀️")
 
 IMAGEN_PORTERIA = 'NS_Goal_handball.png'
 IMAGEN_CANCHA = 'NS_ui_Balonmano_BL_V_T.jpg'
+
+# 💡 TRUCO DE MEMORIA: Leemos el estado del botón antes de dibujarlo abajo
+if 'freeze_toggle' not in st.session_state:
+    st.session_state['freeze_toggle'] = True
+estado_vivo = st.session_state['freeze_toggle']
 
 # ==========================================
 # 🚨 ENLACE DE TU GOOGLE SHEET 
@@ -44,16 +49,10 @@ def obtener_url_csv(url):
 URL_OFICIAL = obtener_url_csv(URL_USUARIO)
 
 # ==========================================
-# 0. CONTROL DE FLUJO (FREEZE MODE)
+# 0. AUTO-REFRESCO
 # ==========================================
-st.sidebar.markdown("### 🕹️ Control del Tablero")
-estado_vivo = st.sidebar.toggle("🟢 Conexión En Vivo", value=True, help="Apágalo para generar y descargar el reporte.")
-
 if estado_vivo:
     st_autorefresh(interval=4000, limit=None, key="data_refresh")
-    st.sidebar.info("Actualizando cada 4 seg.")
-else:
-    st.sidebar.warning("🔴 Tablero Congelado")
 
 # ==========================================
 # 1. CONEXIÓN A DATOS 
@@ -72,7 +71,7 @@ def load_data():
 df_vivo = load_data()
 
 # ==========================================
-# 2. FILTROS EN BARRA LATERAL 
+# 2. FILTROS EN BARRA LATERAL (ARRIBA)
 # ==========================================
 st.sidebar.header("Filtros del Partido")
 
@@ -125,6 +124,8 @@ equipos_totales = df_partido_actual['Equipo'].dropna().unique() if not df_partid
 equipo_local = equipos_totales[0] if len(equipos_totales) > 0 else 'Local'
 equipo_visitante = equipos_totales[1] if len(equipos_totales) > 1 else None
 
+stats_locales = {'goles':0, 'efect':0, 'tiros':0, 'perd':0, 'paradas':0, 'fallos':0}
+
 # ==========================================
 # 3. ESTADÍSTICAS SUPERIORES
 # ==========================================
@@ -142,6 +143,9 @@ if not df.empty and 'Equipo' in df.columns:
         
         tiros_totales = goles + paradas + fallos
         efectividad = int(round((goles / tiros_totales * 100), 0)) if tiros_totales > 0 else 0
+        
+        if eq == equipo_local:
+            stats_locales = {'goles':goles, 'efect':efectividad, 'tiros':tiros_totales, 'perd':perdidas, 'paradas':paradas, 'fallos':fallos}
         
         c1, c2, c3, c4, c5, c6 = st.columns(6)
         c1.metric("Goles", goles)
@@ -472,15 +476,20 @@ with col_rad: st.pyplot(fig_radar)
 with col_ev: st.pyplot(fig_evolucion)
 st.divider()
 
-st.markdown("### 📋 Nivel 4: Rendimiento Individual (Jugadoras)")
+st.markdown("### 📋 Nivel 4: Rendimiento Individual Detallado")
 vista_tabla = st.radio("Filtro de Tabla:", ["Partido Actual", "Promedio Histórico"], horizontal=True)
-df_base = df if vista_tabla == "Partido Actual" else df_vivo
+
+# 💡 LÓGICA DE HISTÓRICO CORREGIDA: Aislamos ÚNICAMENTE al equipo local
+if vista_tabla == "Partido Actual":
+    df_base = df
+else:
+    df_base = df_vivo[df_vivo['Equipo'] == equipo_local].copy()
+
 df_jugadores = df_base[(df_base['Jugador'].notna()) & (df_base['Jugador'] != 'N/A') & (df_base['Jugador'] != '')].copy()
 
 if not df_jugadores.empty:
     df_jugadores['Jugador'] = df_jugadores['Jugador'].astype(str)
     
-    # 💡 NUEVO DESGLOSE TOTAL DE LA TABLA (Ataque y Disciplina)
     goles = df_jugadores[df_jugadores['Resultado'] == 'Gol'].groupby(['Equipo', 'Jugador']).size().reset_index(name='Goles')
     fallos = df_jugadores[df_jugadores['Resultado'] == 'Fallo'].groupby(['Equipo', 'Jugador']).size().reset_index(name='Fallos')
     atajados = df_jugadores[df_jugadores['Resultado'] == 'Parada'].groupby(['Equipo', 'Jugador']).size().reset_index(name='Atajados')
@@ -505,7 +514,8 @@ if not df_jugadores.empty:
         stats[columnas_numericas] = stats[columnas_numericas].astype(int)
         format_dict = {col: '{:.0f}' for col in columnas_numericas}
     else:
-        total_partidos = df_vivo['Partido'].nunique()
+        # Promedio dividiendo solo entre los partidos que jugó el equipo local
+        total_partidos = df_base['Partido'].nunique()
         if total_partidos > 0: stats[columnas_numericas] = stats[columnas_numericas] / total_partidos
         format_dict = {col: '{:.1f}' for col in columnas_numericas}
             
@@ -524,7 +534,7 @@ if not df_jugadores.empty:
         use_container_width=True
     )
 else:
-    st.info("Esperando datos de jugadoras...")
+    st.info("Esperando datos individuales...")
     
 with st.expander("Ver Base de Datos Cruda"): st.dataframe(df)
 
@@ -616,10 +626,9 @@ def crear_pdf_reporte(partido_nom, eq_local, eq_vis, fig_mom, fig_rad, fig_evo, 
                 pdf_stats['Jugador'] = pdf_stats['Jugador'].apply(lambda x: x.split('.')[0] if x.endswith('.0') else x)
                 pdf_stats = pdf_stats.sort_values(by=['Gol', 'Efect%'], ascending=[False, False]).reset_index(drop=True)
                 
-                # Dibujar Celdas PDF
                 pdf.set_font("Arial", "B", 8)
                 col_widths = [40, 16, 16, 16, 16, 16, 16, 16, 16, 20]
-                headers = ['Jugador', 'Gol', 'Fal', 'Atj', 'Tir', 'Perd', 'TA', '2M', 'TR', 'Efect%']
+                headers = ['Deportista', 'Gol', 'Fal', 'Atj', 'Tir', 'Perd', 'TA', '2M', 'TR', 'Efect%']
                 for i, h in enumerate(headers):
                     pdf.cell(col_widths[i], 8, h, border=1, align='C')
                 pdf.ln()
@@ -639,7 +648,7 @@ def crear_pdf_reporte(partido_nom, eq_local, eq_vis, fig_mom, fig_rad, fig_evo, 
                     pdf.ln()
             else:
                 pdf.set_font("Arial", "I", 10)
-                pdf.cell(0, 10, "Sin datos de jugadores registrados.", ln=True)
+                pdf.cell(0, 10, "Sin datos de atletas registrados.", ln=True)
 
             pdf.add_page()
             pdf.set_font("Arial", "B", 12)
@@ -652,36 +661,55 @@ def crear_pdf_reporte(partido_nom, eq_local, eq_vis, fig_mom, fig_rad, fig_evo, 
         if not df_vis.empty and eq_vis:
             construir_hojas_equipo(eq_vis, df_vis, p_c_vis, p_p_vis, False)
 
-        # Página Global
+        # 💡 SOLUCIÓN DE ACOMODO EN PÁGINA GLOBAL
         pdf.add_page()
         pdf.set_font("Arial", "B", 14)
         pdf.cell(0, 10, "ANALISIS COLECTIVO Y EVOLUCION", ln=True, align='C')
         pdf.ln(5)
         
+        curr_y = pdf.get_y()
         if fig_mom:
             pdf.set_font("Arial", "B", 12)
             pdf.cell(0, 10, "1. Flujo del Partido (Momentum)", ln=True)
-            pdf.image(p_mom, x=10, y=30, w=190)
+            img_y = pdf.get_y()
+            pdf.image(p_mom, x=10, y=img_y, w=190)
+            curr_y = img_y + 75 # Asegura un salto de línea limpio debajo del Momentum
             
-        pdf.set_y(120)
+        pdf.set_y(curr_y)
         pdf.set_font("Arial", "B", 12)
         pdf.cell(0, 10, "2. Toma de Decisiones y Fatiga Tactica", ln=True)
-        if fig_rad: pdf.image(p_rad, x=10, y=135, w=90)
-        if fig_evo: pdf.image(p_evo, x=105, y=135, w=90)
+        img_y_2 = pdf.get_y()
+        if fig_rad: pdf.image(p_rad, x=10, y=img_y_2, w=90)
+        if fig_evo: pdf.image(p_evo, x=105, y=img_y_2, w=90)
 
         pdf_path = os.path.join(tmpdir, "reporte.pdf")
         pdf.output(pdf_path)
         with open(pdf_path, "rb") as f: return f.read()
 
+# ==========================================
+# SECCIÓN FINAL: CONTROLES DE LA BARRA LATERAL
+# ==========================================
 st.sidebar.divider()
+st.sidebar.markdown("### 🕹️ Control del Tablero")
+
+# 💡 EL BOTÓN DE PAUSA AL FONDO, SE REGISTRA DIRECTO EN SESSION_STATE
+st.sidebar.toggle("🟢 Conexión En Vivo", key="freeze_toggle", help="Apágalo para detener el refresco y exportar el reporte.")
+
+if estado_vivo:
+    st.sidebar.info("Actualizando datos cada 4 segundos.")
+else:
+    st.sidebar.warning("🔴 Tablero Congelado")
+
+st.sidebar.markdown("### 📥 Exportar Análisis")
+
 if FPDF_DISPONIBLE and partido_actual != "Sin Datos" and not df.empty:
     if not estado_vivo:
         if st.sidebar.button("⚙️ Preparar Reporte PDF"):
-            with st.sidebar.status("Construyendo reporte..."):
+            with st.sidebar.status("Construyendo reporte... esto tomará unos segundos"):
                 pdf_data = crear_pdf_reporte(partido_actual, equipo_local, equipo_visitante, fig_momentum, fig_radar, fig_evolucion, df_partido_actual)
                 st.session_state['pdf_listo'] = pdf_data
                 
         if 'pdf_listo' in st.session_state:
             st.sidebar.download_button(label="⬇️ Descargar PDF Ahora", data=st.session_state['pdf_listo'], file_name=f"Reporte_{partido_actual}.pdf", mime="application/pdf")
     else:
-        st.sidebar.info("Para exportar, pausa el tablero arriba (🟢 Conexión En Vivo -> 🔴 Tablero Congelado).")
+        st.sidebar.info("Para exportar, pausa el tablero arriba (🟢 -> 🔴 Tablero Congelado).")
