@@ -44,21 +44,9 @@ def obtener_url_csv(url):
 URL_OFICIAL = obtener_url_csv(URL_USUARIO)
 
 # ==========================================
-# 0. CONTROL DE FLUJO (FREEZE MODE)
-# ==========================================
-st.sidebar.markdown("### 🕹️ Control del Tablero")
-estado_vivo = st.sidebar.toggle("🟢 Conexión En Vivo", value=True, help="Apágalo para generar y descargar el reporte.")
-
-if estado_vivo:
-    st_autorefresh(interval=4000, limit=None, key="data_refresh")
-    st.sidebar.info("Actualizando cada 4 seg.")
-else:
-    st.sidebar.warning("🔴 Tablero Congelado")
-
-# ==========================================
 # 1. CONEXIÓN A DATOS 
 # ==========================================
-@st.cache_data(ttl=3 if estado_vivo else 3600)
+@st.cache_data(ttl=3)
 def load_data():
     try:
         conector = "&" if "?" in URL_OFICIAL else "?"
@@ -125,6 +113,8 @@ equipos_totales = df_partido_actual['Equipo'].dropna().unique() if not df_partid
 equipo_local = equipos_totales[0] if len(equipos_totales) > 0 else 'Local'
 equipo_visitante = equipos_totales[1] if len(equipos_totales) > 1 else None
 
+stats_locales = {'goles':0, 'efect':0, 'tiros':0, 'perd':0, 'paradas':0, 'fallos':0}
+
 # ==========================================
 # 3. ESTADÍSTICAS SUPERIORES
 # ==========================================
@@ -142,6 +132,9 @@ if not df.empty and 'Equipo' in df.columns:
         
         tiros_totales = goles + paradas + fallos
         efectividad = int(round((goles / tiros_totales * 100), 0)) if tiros_totales > 0 else 0
+        
+        if eq == equipo_local:
+            stats_locales = {'goles':goles, 'efect':efectividad, 'tiros':tiros_totales, 'perd':perdidas, 'paradas':paradas, 'fallos':fallos}
         
         c1, c2, c3, c4, c5, c6 = st.columns(6)
         c1.metric("Goles", goles)
@@ -191,6 +184,7 @@ def plot_cancha(df_filtrado):
         if len(paradas) > 0: ax.scatter(paradas['PX'], paradas['PY'], c='#ff9800', marker='^', s=100, alpha=0.9, edgecolors='black')
         if len(goles) > 0: ax.scatter(goles['PX'], goles['PY'], c='#00e676', marker='o', s=120, edgecolors='black', linewidth=1.5)
     
+    # Simbología incrustada solo en la cancha
     leyenda = [
         mlines.Line2D([], [], color='w', marker='o', markerfacecolor='#00e676', markeredgecolor='black', markersize=9, markeredgewidth=1.5, label='Gol'),
         mlines.Line2D([], [], color='w', marker='^', markerfacecolor='#ff9800', markeredgecolor='black', markersize=9, label='Parada'),
@@ -234,12 +228,7 @@ def plot_porteria(df_filtrado):
         if len(paradas) > 0: ax.scatter(paradas['PX'], paradas['PY'], c='#ff9800', marker='^', s=100, alpha=0.9, edgecolors='black')
         if len(goles) > 0: ax.scatter(goles['PX'], goles['PY'], c='#00e676', marker='o', s=120, edgecolors='black', linewidth=1.5)
     
-    leyenda = [
-        mlines.Line2D([], [], color='w', marker='o', markerfacecolor='#00e676', markeredgecolor='black', markersize=9, markeredgewidth=1.5, label='Gol'),
-        mlines.Line2D([], [], color='w', marker='^', markerfacecolor='#ff9800', markeredgecolor='black', markersize=9, label='Parada'),
-        mlines.Line2D([], [], color='w', marker='X', markerfacecolor='white', markeredgecolor='black', markersize=9, label='Fallo')
-    ]
-    ax.legend(handles=leyenda, loc='lower right', fontsize=8, title='Simbología', title_fontsize=9, framealpha=0.8, edgecolor='black')
+    # 💡 LEYENDA ELIMINADA DE AQUÍ
     ax.set_xlim(0, 100)
     ax.set_ylim(100, 0)
     ax.axis('off')
@@ -287,7 +276,6 @@ def plot_momentum(df_all):
 
     fig, (ax_marcador, ax_momentum) = plt.subplots(2, 1, figsize=(14, 5), gridspec_kw={'height_ratios': [2, 1]}, sharex=True)
     fig.patch.set_facecolor('white') 
-    fig.subplots_adjust(hspace=0.05)
 
     ax_marcador.step(t_arr, score_loc, where='post', color=color_loc, linewidth=3, label=equipo_local)
     ax_marcador.step(t_arr, score_vis, where='post', color=color_vis, linewidth=3, label=equipo_visitante if equipo_visitante else 'Visitante')
@@ -307,6 +295,9 @@ def plot_momentum(df_all):
     eje_x_max = max(60, minuto_actual)
     ax_marcador.set_xlim(0, eje_x_max)
     ax_marcador.set_xticks(np.arange(0, eje_x_max + 5, 5))
+    
+    # 💡 AJUSTE PARA EVITAR QUE SE ENPALME CON EL TÍTULO
+    fig.tight_layout() 
     return fig
 
 def plot_radar_avanzado(df_partido, df_historico, eq_local, eq_vis, modo):
@@ -519,7 +510,6 @@ def crear_pdf_reporte(partido_nom, eq_local, eq_vis, fig_mom, fig_rad, fig_evo, 
     pdf.set_auto_page_break(auto=True, margin=15)
     
     with tempfile.TemporaryDirectory() as tmpdir:
-        # Generar gráficas ocultas separadas por equipo
         df_loc = df_partido[df_partido['Equipo'] == eq_local]
         fig_c_loc = plot_cancha(df_loc)
         fig_p_loc = plot_porteria(df_loc)
@@ -548,7 +538,6 @@ def crear_pdf_reporte(partido_nom, eq_local, eq_vis, fig_mom, fig_rad, fig_evo, 
         if fig_rad: fig_rad.savefig(p_rad, bbox_inches='tight', facecolor='white', dpi=150)
         if fig_evo: fig_evo.savefig(p_evo, bbox_inches='tight', facecolor='white', dpi=150)
 
-        # Función constructora de hojas para un equipo
         def construir_hojas_equipo(team_name, df_team, p_cancha, p_porteria, is_local):
             pdf.add_page()
             pdf.set_font("Arial", "B", 16)
@@ -620,14 +609,10 @@ def crear_pdf_reporte(partido_nom, eq_local, eq_vis, fig_mom, fig_rad, fig_evo, 
             pdf.image(p_cancha, x=10, y=30, w=90)
             pdf.image(p_porteria, x=105, y=30, w=90)
 
-        # Construir páginas del Local
         construir_hojas_equipo(eq_local, df_loc, p_c_loc, p_p_loc, True)
-        
-        # Construir páginas del Visitante (Si existe)
         if not df_vis.empty and eq_vis:
             construir_hojas_equipo(eq_vis, df_vis, p_c_vis, p_p_vis, False)
 
-        # Construir página global (Momentum, Radar, Fatiga)
         pdf.add_page()
         pdf.set_font("Arial", "B", 14)
         pdf.cell(0, 10, "ANALISIS COLECTIVO Y EVOLUCION", ln=True, align='C')
@@ -648,7 +633,20 @@ def crear_pdf_reporte(partido_nom, eq_local, eq_vis, fig_mom, fig_rad, fig_evo, 
         pdf.output(pdf_path)
         with open(pdf_path, "rb") as f: return f.read()
 
+# ==========================================
+# SECCIÓN FINAL: CONTROLES DE LA BARRA LATERAL
+# ==========================================
 st.sidebar.divider()
+st.sidebar.markdown("### 🕹️ Control del Tablero")
+# 💡 REQUERIMIENTO 1: El botón de pausa se movió aquí abajo
+estado_vivo = st.sidebar.toggle("🟢 Conexión En Vivo", value=True, help="Apágalo para detener el refresco y generar el PDF.")
+
+if estado_vivo:
+    st_autorefresh(interval=4000, limit=None, key="data_refresh")
+    st.sidebar.info("Actualizando base de datos cada 4 segundos.")
+else:
+    st.sidebar.warning("🔴 Tablero Congelado")
+
 st.sidebar.markdown("### 📥 Exportar Análisis")
 
 if FPDF_DISPONIBLE and partido_actual != "Sin Datos" and not df.empty:
