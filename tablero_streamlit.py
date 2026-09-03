@@ -27,7 +27,6 @@ st.title("Análisis Táctico 🤾‍♀️")
 IMAGEN_PORTERIA = 'NS_Goal_handball.png'
 IMAGEN_CANCHA = 'NS_ui_Balonmano_BL_V_T.jpg'
 
-# 💡 OPTIMIZACIÓN 1: Cargar imágenes una sola vez en RAM
 @st.cache_data
 def cargar_imagen(ruta):
     try:
@@ -59,10 +58,9 @@ def obtener_url_csv(url):
 URL_OFICIAL = obtener_url_csv(URL_USUARIO)
 
 # ==========================================
-# 0. AUTO-REFRESCO (OPTIMIZADO A 8 SEG)
+# 0. AUTO-REFRESCO 
 # ==========================================
 if estado_vivo:
-    # 💡 OPTIMIZACIÓN 2: 8000 ms da tiempo para renderizar gráficas pesadas sin colapsar
     st_autorefresh(interval=8000, limit=None, key="data_refresh")
 
 # ==========================================
@@ -101,11 +99,11 @@ else:
     df_partido_actual = pd.DataFrame()
 
 if not df_partido_actual.empty:
-    lista_equipos = ['Todos'] + [str(x) for x in df_partido_actual['Equipo'].dropna().unique()]
+    lista_equipos = ['Todos'] + [str(x).strip() for x in df_partido_actual['Equipo'].dropna().unique()]
     equipo_sel = st.sidebar.selectbox("1. ¿Quién ataca?", lista_equipos)
     
     if equipo_sel != 'Todos':
-        df_para_jugadores = df_partido_actual[df_partido_actual['Equipo'] == equipo_sel]
+        df_para_jugadores = df_partido_actual[df_partido_actual['Equipo'].astype(str).str.strip() == equipo_sel]
     else:
         df_para_jugadores = df_partido_actual
         
@@ -125,13 +123,14 @@ else:
 
 df = df_partido_actual.copy()
 if not df.empty:
+    df['Equipo'] = df['Equipo'].astype(str).str.strip() # Limpiar espacios fantasma
     if equipo_sel != 'Todos': df = df[df['Equipo'] == equipo_sel]
     if jugador_sel != 'Todos': df = df[df['Jugador'].astype(str) == jugador_sel]
     if fase_sel != 'Todas': df = df[df['Fase'] == fase_sel]
     if resultado_sel != 'Todos': df = df[df['Resultado'] == resultado_sel]
     if lado_sel != 'Todos': df = df[df['Lado'] == lado_sel]
 
-equipos_totales = df_partido_actual['Equipo'].dropna().unique() if not df_partido_actual.empty else []
+equipos_totales = [str(x).strip() for x in df_partido_actual['Equipo'].dropna().unique()] if not df_partido_actual.empty else []
 equipo_local = equipos_totales[0] if len(equipos_totales) > 0 else 'Local'
 equipo_visitante = equipos_totales[1] if len(equipos_totales) > 1 else None
 
@@ -278,11 +277,14 @@ def plot_momentum(df_all):
     for _, row in goles_df.iterrows():
         t = row['match_min']
         eq = str(row['Equipo']).strip()
-        if eq == equipo_local: marcador_L += 1; racha_L += 1; racha_V = 0
-        elif eq == equipo_visitante: marcador_V += 1; racha_V += 1; racha_L = 0
+        if eq == equipo_local: 
+            marcador_L += 1; racha_L += 1; racha_V = 0
+        elif eq == equipo_visitante: 
+            marcador_V += 1; racha_V += 1; racha_L = 0
 
-        if racha_L >= 2: mom_val = racha_L
-        elif racha_V >= 2: mom_val = -racha_V
+        # 💡 LÓGICA DE MOMENTUM CORREGIDA: Cada gol dibuja barra, mostrando AMBOS equipos visualmente.
+        if racha_L > 0: mom_val = racha_L
+        elif racha_V > 0: mom_val = -racha_V
         else: mom_val = 0
 
         t_eventos.append(t); score_loc.append(marcador_L); score_vis.append(marcador_V); momentum.append(mom_val)
@@ -302,12 +304,14 @@ def plot_momentum(df_all):
     ax_marcador.set_ylabel('Goles', fontsize=10, fontweight='bold')
     ax_marcador.grid(True, linestyle='--', alpha=0.4); ax_marcador.legend(fontsize=10, loc='upper left')
 
-    ax_momentum.fill_between(t_arr, 0, mom_positivo, step='post', facecolor=color_loc, alpha=0.7)
-    ax_momentum.fill_between(t_arr, 0, mom_negativo, step='post', facecolor=color_vis, alpha=0.7)
+    # 💡 LEYENDAS EXPLÍCITAS EN LA GRÁFICA DE MOMENTUM
+    ax_momentum.fill_between(t_arr, 0, mom_positivo, step='post', facecolor=color_loc, alpha=0.7, label=f'Momentum {equipo_local}')
+    ax_momentum.fill_between(t_arr, 0, mom_negativo, step='post', facecolor=color_vis, alpha=0.7, label=f'Momentum {equipo_visitante if equipo_visitante else "Visitante"}')
     ax_momentum.axvline(x=30, color='black', linestyle='--', alpha=0.5); ax_momentum.axhline(y=0, color='black', linewidth=1, alpha=0.8)
     ax_momentum.set_xlabel('Tiempo de Juego (Minutos)', fontsize=10, fontweight='bold')
     ax_momentum.set_ylabel('Momentum', fontsize=10, fontweight='bold')
     ax_momentum.grid(True, axis='x', linestyle='--', alpha=0.4)
+    ax_momentum.legend(fontsize=9, loc='upper left')
     
     max_mom = max(abs(mom_arr.min()), abs(mom_arr.max()), 2) + 1
     ax_momentum.set_ylim(-max_mom, max_mom); ax_momentum.set_yticks([]) 
@@ -457,10 +461,10 @@ def plot_tendencia_cansancio(df_partido, df_historico, eq_local, modo):
     plt.subplots_adjust(bottom=0.25)
     return fig
 
-# Generamos figuras de UI
+# 💡 GENERACIÓN DE GRÁFICOS UI DE MANERA SEGURA PARA LA MEMORIA
 fig_cancha = plot_cancha(df)
 fig_porteria = plot_porteria(df)
-fig_momentum = plot_momentum(df) if not df.empty else None
+fig_momentum = plot_momentum(df_partido_actual) if not df_partido_actual.empty else None
 
 # ==========================================
 # LAYOUT PRINCIPAL (UI FRONT-END)
@@ -469,7 +473,7 @@ st.markdown("### 📍 Nivel 1: El Espacio (Origen y Destino)")
 col_cancha, col_porteria = st.columns(2) 
 with col_cancha: 
     st.pyplot(fig_cancha)
-    plt.close(fig_cancha) # 💡 OPTIMIZACIÓN 3: Limpiar memoria RAM inmediatamente
+    plt.close(fig_cancha) 
 with col_porteria: 
     st.pyplot(fig_porteria)
     plt.close(fig_porteria)
@@ -485,8 +489,8 @@ st.divider()
 st.markdown("### 🧠 Nivel 3: Toma de Decisiones y Evolución Táctica")
 modo_analisis = st.radio("🔍 Perspectiva de Análisis:", ["El Rival de Hoy", "Nuestra Historia"], horizontal=True)
 
-fig_radar = plot_radar_avanzado(df, df_vivo, equipo_local, equipo_visitante, modo_analisis)
-fig_evolucion = plot_tendencia_cansancio(df, df_vivo, equipo_local, modo_analisis)
+fig_radar = plot_radar_avanzado(df_partido_actual, df_vivo, equipo_local, equipo_visitante, modo_analisis)
+fig_evolucion = plot_tendencia_cansancio(df_partido_actual, df_vivo, equipo_local, modo_analisis)
 
 col_rad, col_ev = st.columns(2)
 with col_rad: 
@@ -553,8 +557,10 @@ if not df_jugadores.empty:
         use_container_width=True
     )
 else:
-    st.info("Esperando datos individuales...")
+    st.info("Esperando datos de rendimiento...")
     
+plt.close('all')
+
 with st.expander("Ver Base de Datos Cruda"): st.dataframe(df)
 
 # ==========================================
@@ -565,7 +571,6 @@ def crear_pdf_reporte(partido_nom, eq_local, eq_vis, df_partido, df_historico):
     pdf.set_auto_page_break(auto=True, margin=15)
     
     with tempfile.TemporaryDirectory() as tmpdir:
-        # Generar gráficas frescas solo para el PDF para asegurar que no interfieran con la memoria de UI
         df_loc = df_partido[df_partido['Equipo'] == eq_local]
         fig_c_loc = plot_cancha(df_loc)
         fig_p_loc = plot_porteria(df_loc)
@@ -671,7 +676,7 @@ def crear_pdf_reporte(partido_nom, eq_local, eq_vis, df_partido, df_historico):
                     pdf.ln()
             else:
                 pdf.set_font("Arial", "I", 10)
-                pdf.cell(0, 10, "Sin datos de atletas registrados.", ln=True)
+                pdf.cell(0, 10, "Sin datos de deportistas.", ln=True)
 
             pdf.add_page()
             pdf.set_font("Arial", "B", 12)
