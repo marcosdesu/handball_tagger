@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
+import matplotlib.lines as mlines
 import numpy as np
 from scipy.ndimage import gaussian_filter
 from streamlit_autorefresh import st_autorefresh
@@ -124,8 +125,6 @@ equipos_totales = df_partido_actual['Equipo'].dropna().unique() if not df_partid
 equipo_local = equipos_totales[0] if len(equipos_totales) > 0 else 'Local'
 equipo_visitante = equipos_totales[1] if len(equipos_totales) > 1 else None
 
-stats_locales = {'goles':0, 'efect':0, 'tiros':0, 'perd':0, 'paradas':0, 'fallos':0}
-
 # ==========================================
 # 3. ESTADÍSTICAS SUPERIORES
 # ==========================================
@@ -143,9 +142,6 @@ if not df.empty and 'Equipo' in df.columns:
         
         tiros_totales = goles + paradas + fallos
         efectividad = int(round((goles / tiros_totales * 100), 0)) if tiros_totales > 0 else 0
-        
-        if eq == equipo_local:
-            stats_locales = {'goles':goles, 'efect':efectividad, 'tiros':tiros_totales, 'perd':perdidas, 'paradas':paradas, 'fallos':fallos}
         
         c1, c2, c3, c4, c5, c6 = st.columns(6)
         c1.metric("Goles", goles)
@@ -194,6 +190,14 @@ def plot_cancha(df_filtrado):
         if len(perdidas) > 0: ax.scatter(perdidas['PX'], perdidas['PY'], c='#d32f2f', marker='D', s=80, alpha=0.9, edgecolors='black')
         if len(paradas) > 0: ax.scatter(paradas['PX'], paradas['PY'], c='#ff9800', marker='^', s=100, alpha=0.9, edgecolors='black')
         if len(goles) > 0: ax.scatter(goles['PX'], goles['PY'], c='#00e676', marker='o', s=120, edgecolors='black', linewidth=1.5)
+    
+    leyenda = [
+        mlines.Line2D([], [], color='w', marker='o', markerfacecolor='#00e676', markeredgecolor='black', markersize=9, markeredgewidth=1.5, label='Gol'),
+        mlines.Line2D([], [], color='w', marker='^', markerfacecolor='#ff9800', markeredgecolor='black', markersize=9, label='Parada'),
+        mlines.Line2D([], [], color='w', marker='X', markerfacecolor='white', markeredgecolor='black', markersize=9, label='Fallo'),
+        mlines.Line2D([], [], color='w', marker='D', markerfacecolor='#d32f2f', markeredgecolor='black', markersize=8, label='Pérdida')
+    ]
+    ax.legend(handles=leyenda, loc='lower right', fontsize=8, title='Simbología', title_fontsize=9, framealpha=0.8, edgecolor='black')
     ax.axis('off')
     return fig
 
@@ -229,6 +233,13 @@ def plot_porteria(df_filtrado):
         if len(fallos) > 0: ax.scatter(fallos['PX'], fallos['PY'], c='white', marker='X', s=90, alpha=0.9, edgecolors='black')
         if len(paradas) > 0: ax.scatter(paradas['PX'], paradas['PY'], c='#ff9800', marker='^', s=100, alpha=0.9, edgecolors='black')
         if len(goles) > 0: ax.scatter(goles['PX'], goles['PY'], c='#00e676', marker='o', s=120, edgecolors='black', linewidth=1.5)
+    
+    leyenda = [
+        mlines.Line2D([], [], color='w', marker='o', markerfacecolor='#00e676', markeredgecolor='black', markersize=9, markeredgewidth=1.5, label='Gol'),
+        mlines.Line2D([], [], color='w', marker='^', markerfacecolor='#ff9800', markeredgecolor='black', markersize=9, label='Parada'),
+        mlines.Line2D([], [], color='w', marker='X', markerfacecolor='white', markeredgecolor='black', markersize=9, label='Fallo')
+    ]
+    ax.legend(handles=leyenda, loc='lower right', fontsize=8, title='Simbología', title_fontsize=9, framealpha=0.8, edgecolor='black')
     ax.set_xlim(0, 100)
     ax.set_ylim(100, 0)
     ax.axis('off')
@@ -316,23 +327,18 @@ def plot_radar_avanzado(df_partido, df_historico, eq_local, eq_vis, modo):
         g = len(df_team[df_team['Resultado'] == 'Gol'])
         t = len(df_team[df_team['Resultado'].isin(['Gol', 'Fallo', 'Parada'])])
         efect = (g / t * 100) if t > 0 else 0
-        
         p_riv = len(df_rival[df_rival['Resultado'] == 'Parada'])
         t_riv = len(df_rival[df_rival['Resultado'].isin(['Gol', 'Fallo', 'Parada'])])
         solidez = (p_riv / t_riv * 100) if t_riv > 0 else 0 
-        
         perd = len(df_team[df_team['Resultado'] == 'Perdida'])
         pos = t + perd
         seguridad = (t / pos * 100) if pos > 0 else 0
-        
         sanc = len(df_team[df_team['Resultado'] == 'Sancion'])
         disciplina = max(0, 100 - (sanc * 10))
-        
         df_trans = df_team[df_team['Fase'].astype(str).str.contains('Transicion', case=False, na=False)]
         g_trans = len(df_trans[df_trans['Resultado'] == 'Gol'])
         acc_trans = len(df_trans)
         transicion = (g_trans / acc_trans * 100) if acc_trans > 0 else 0
-        
         vals = [efect, solidez, seguridad, disciplina, transicion]
         vals += vals[:1]
         return vals
@@ -442,26 +448,14 @@ def plot_tendencia_cansancio(df_partido, df_historico, eq_local, modo):
     plt.subplots_adjust(bottom=0.25)
     return fig
 
-# Generamos las figuras 
+# Generamos figuras de UI
 fig_cancha = plot_cancha(df)
 fig_porteria = plot_porteria(df)
 fig_momentum = plot_momentum(df) if not df.empty else None
-fig_radar = plot_radar_avanzado(df, df_vivo, equipo_local, equipo_visitante, "El Rival de Hoy")
-fig_evolucion = plot_tendencia_cansancio(df, df_vivo, equipo_local, "El Rival de Hoy")
 
 # ==========================================
-# LAYOUT PRINCIPAL
+# LAYOUT PRINCIPAL (UI FRONT-END)
 # ==========================================
-st.markdown("""
-<div style='background-color: #1e1e1e; padding: 10px; border-radius: 5px; border: 1px solid #444; margin-bottom: 10px; font-size: 0.9em;'>
-    <b>Simbología de Mapas:</b> &nbsp; 
-    🟢 <b>Goles</b> (Círculos) &nbsp;|&nbsp; 
-    🔶 <b>Paradas</b> (Triángulos) &nbsp;|&nbsp; 
-    ✖️ <b>Fallos</b> (Cruces) &nbsp;|&nbsp; 
-    ♦️ <b>Pérdidas</b> (Rombos)
-</div>
-""", unsafe_allow_html=True)
-
 st.markdown("### 📍 Nivel 1: El Espacio (Origen y Destino)")
 col_cancha, col_porteria = st.columns(2) 
 with col_cancha: st.pyplot(fig_cancha)
@@ -475,13 +469,12 @@ st.divider()
 st.markdown("### 🧠 Nivel 3: Toma de Decisiones y Evolución Táctica")
 modo_analisis = st.radio("🔍 Perspectiva de Análisis:", ["El Rival de Hoy", "Nuestra Historia"], horizontal=True)
 
+fig_radar = plot_radar_avanzado(df, df_vivo, equipo_local, equipo_visitante, modo_analisis)
+fig_evolucion = plot_tendencia_cansancio(df, df_vivo, equipo_local, modo_analisis)
+
 col_rad, col_ev = st.columns(2)
-with col_rad: 
-    fig_rad_ui = plot_radar_avanzado(df, df_vivo, equipo_local, equipo_visitante, modo_analisis)
-    st.pyplot(fig_rad_ui)
-with col_ev: 
-    fig_ev_ui = plot_tendencia_cansancio(df, df_vivo, equipo_local, modo_analisis)
-    st.pyplot(fig_ev_ui)
+with col_rad: st.pyplot(fig_radar)
+with col_ev: st.pyplot(fig_evolucion)
 st.divider()
 
 st.markdown("### 📋 Nivel 4: Rendimiento Individual (Jugadoras)")
@@ -519,101 +512,138 @@ else:
 with st.expander("Ver Base de Datos Cruda"): st.dataframe(df)
 
 # ==========================================
-# EXPORTACIÓN PDF (Orden Estructurado)
+# MOTOR GENERADOR DE PDF MULTI-EQUIPO
 # ==========================================
-def crear_pdf_reporte(partido_nom, eq_local, fig1, fig2, fig3, fig4, fig5, dict_stats, df_partido):
+def crear_pdf_reporte(partido_nom, eq_local, eq_vis, fig_mom, fig_rad, fig_evo, df_partido):
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=15)
     
-    # --- PÁGINA 1: RESUMEN Y TABLA INDIVIDUAL ---
-    pdf.add_page()
-    pdf.set_font("Arial", "B", 16)
-    pdf.cell(0, 10, f"REPORTE TACTICO: {partido_nom}", ln=True, align='C')
-    pdf.set_font("Arial", "", 12)
-    pdf.cell(0, 10, f"Equipo Principal: {eq_local}", ln=True, align='C')
-    pdf.ln(5)
-    
-    # 1. Estadísticas Colectivas
-    pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 10, "Estadisticas Colectivas", ln=True)
-    pdf.set_font("Arial", "", 11)
-    pdf.cell(0, 8, f"Goles: {dict_stats['goles']}  |  Efectividad: {dict_stats['efect']}%  |  Tiros Totales: {dict_stats['tiros']}", ln=True)
-    pdf.cell(0, 8, f"Perdidas: {dict_stats['perd']}  |  Fallos: {dict_stats['fallos']}  |  Paradas del Rival: {dict_stats['paradas']}", ln=True)
-    pdf.ln(10)
-    
-    # 2. Tabla de Jugadoras (Generada para FPDF)
-    pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 10, "Rendimiento Individual (Este Partido)", ln=True)
-    pdf.ln(2)
-    
-    df_jug = df_partido[(df_partido['Jugador'].notna()) & (df_partido['Jugador'] != 'N/A') & (df_partido['Jugador'] != '')].copy()
-    if not df_jug.empty:
-        df_jug['Jugador'] = df_jug['Jugador'].astype(str)
-        t_gol = df_jug[df_jug['Resultado'] == 'Gol'].groupby(['Equipo', 'Jugador']).size().reset_index(name='Goles')
-        t_tir = df_jug[df_jug['Resultado'].isin(['Gol', 'Fallo', 'Parada'])].groupby(['Equipo', 'Jugador']).size().reset_index(name='Tiros')
-        t_per = df_jug[df_jug['Resultado'] == 'Perdida'].groupby(['Equipo', 'Jugador']).size().reset_index(name='Perdidas')
-        t_san = df_jug[df_jug['Resultado'] == 'Sancion'].groupby(['Equipo', 'Jugador']).size().reset_index(name='Sanciones')
-        
-        pdf_stats = pd.merge(t_gol, t_tir, on=['Equipo', 'Jugador'], how='outer').fillna(0)
-        pdf_stats = pd.merge(pdf_stats, t_per, on=['Equipo', 'Jugador'], how='outer').fillna(0)
-        pdf_stats = pd.merge(pdf_stats, t_san, on=['Equipo', 'Jugador'], how='outer').fillna(0)
-        pdf_stats[['Goles', 'Tiros', 'Perdidas', 'Sanciones']] = pdf_stats[['Goles', 'Tiros', 'Perdidas', 'Sanciones']].astype(int)
-        pdf_stats['Efectividad (%)'] = np.where(pdf_stats['Tiros'] > 0, (pdf_stats['Goles'] / pdf_stats['Tiros']) * 100, 0.0)
-        pdf_stats['Jugador'] = pdf_stats['Jugador'].apply(lambda x: x.split('.')[0] if x.endswith('.0') else x)
-        pdf_stats = pdf_stats.sort_values(by=['Equipo', 'Goles', 'Efectividad (%)'], ascending=[False, False, False]).reset_index(drop=True)
-        
-        # Dibujar Celdas de la Tabla
-        pdf.set_font("Arial", "B", 9)
-        col_widths = [40, 25, 20, 20, 25, 25, 25]
-        headers = ['Equipo', 'Jugador', 'Goles', 'Tiros', 'Perdidas', 'Sanciones', 'Efectividad']
-        for i, h in enumerate(headers):
-            pdf.cell(col_widths[i], 8, h, border=1, align='C')
-        pdf.ln()
-        
-        pdf.set_font("Arial", "", 9)
-        for _, row in pdf_stats.iterrows():
-            pdf.cell(col_widths[0], 8, str(row['Equipo'])[:18], border=1, align='C')
-            pdf.cell(col_widths[1], 8, str(row['Jugador']), border=1, align='C')
-            pdf.cell(col_widths[2], 8, str(row['Goles']), border=1, align='C')
-            pdf.cell(col_widths[3], 8, str(row['Tiros']), border=1, align='C')
-            pdf.cell(col_widths[4], 8, str(row['Perdidas']), border=1, align='C')
-            pdf.cell(col_widths[5], 8, str(row['Sanciones']), border=1, align='C')
-            pdf.cell(col_widths[6], 8, f"{row['Efectividad (%)']:.1f}%", border=1, align='C')
-            pdf.ln()
-    else:
-        pdf.set_font("Arial", "I", 10)
-        pdf.cell(0, 10, "Sin datos de jugadores registrados.", ln=True)
-
-    # Procesamiento temporal de imágenes
     with tempfile.TemporaryDirectory() as tmpdir:
-        p1 = os.path.join(tmpdir, "1.png"); p2 = os.path.join(tmpdir, "2.png"); p3 = os.path.join(tmpdir, "3.png")
-        p4 = os.path.join(tmpdir, "4.png"); p5 = os.path.join(tmpdir, "5.png")
+        # Generar gráficas ocultas separadas por equipo
+        df_loc = df_partido[df_partido['Equipo'] == eq_local]
+        fig_c_loc = plot_cancha(df_loc)
+        fig_p_loc = plot_porteria(df_loc)
+        p_c_loc = os.path.join(tmpdir, "c_loc.png")
+        p_p_loc = os.path.join(tmpdir, "p_loc.png")
+        fig_c_loc.savefig(p_c_loc, bbox_inches='tight', facecolor='white', dpi=150)
+        fig_p_loc.savefig(p_p_loc, bbox_inches='tight', facecolor='white', dpi=150)
+        plt.close(fig_c_loc)
+        plt.close(fig_p_loc)
         
-        fig1.savefig(p1, bbox_inches='tight', facecolor='white', dpi=150)
-        fig2.savefig(p2, bbox_inches='tight', facecolor='white', dpi=150)
-        if fig3: fig3.savefig(p3, bbox_inches='tight', facecolor='white', dpi=150)
-        fig4.savefig(p4, bbox_inches='tight', facecolor='white', dpi=150)
-        fig5.savefig(p5, bbox_inches='tight', facecolor='white', dpi=150)
-        
-        # --- PÁGINA 2: EL ESPACIO (Cancha y Portería) ---
-        pdf.add_page()
-        pdf.set_font("Arial", "B", 12)
-        pdf.cell(0, 10, "El Espacio (Origen y Destino)", ln=True)
-        pdf.image(p1, x=10, y=30, w=90)
-        pdf.image(p2, x=105, y=30, w=90)
-        
-        # --- PÁGINA 3: FLUJO Y TOMA DE DECISIONES ---
-        pdf.add_page()
-        pdf.set_font("Arial", "B", 12)
-        pdf.cell(0, 10, "Flujo del Partido (Momentum)", ln=True)
-        if fig3:
-            pdf.image(p3, x=10, y=25, w=190)
+        df_vis = df_partido[df_partido['Equipo'] == eq_vis] if eq_vis else pd.DataFrame()
+        if not df_vis.empty:
+            fig_c_vis = plot_cancha(df_vis)
+            fig_p_vis = plot_porteria(df_vis)
+            p_c_vis = os.path.join(tmpdir, "c_vis.png")
+            p_p_vis = os.path.join(tmpdir, "p_vis.png")
+            fig_c_vis.savefig(p_c_vis, bbox_inches='tight', facecolor='white', dpi=150)
+            fig_p_vis.savefig(p_p_vis, bbox_inches='tight', facecolor='white', dpi=150)
+            plt.close(fig_c_vis)
+            plt.close(fig_p_vis)
             
-        pdf.set_y(130) # Baja a la mitad de la hoja
-        pdf.cell(0, 10, "Toma de Decisiones y Fatiga Tactica", ln=True)
-        pdf.image(p4, x=10, y=145, w=90)
-        pdf.image(p5, x=105, y=145, w=90)
+        p_mom = os.path.join(tmpdir, "mom.png")
+        p_rad = os.path.join(tmpdir, "rad.png")
+        p_evo = os.path.join(tmpdir, "evo.png")
+        if fig_mom: fig_mom.savefig(p_mom, bbox_inches='tight', facecolor='white', dpi=150)
+        if fig_rad: fig_rad.savefig(p_rad, bbox_inches='tight', facecolor='white', dpi=150)
+        if fig_evo: fig_evo.savefig(p_evo, bbox_inches='tight', facecolor='white', dpi=150)
+
+        # Función constructora de hojas para un equipo
+        def construir_hojas_equipo(team_name, df_team, p_cancha, p_porteria, is_local):
+            pdf.add_page()
+            pdf.set_font("Arial", "B", 16)
+            pdf.cell(0, 10, f"REPORTE TACTICO: {partido_nom}", ln=True, align='C')
+            pdf.set_font("Arial", "", 12)
+            tipo = "LOCAL" if is_local else "VISITANTE"
+            pdf.cell(0, 10, f"Equipo {tipo}: {team_name}", ln=True, align='C')
+            pdf.ln(5)
+            
+            goles = len(df_team[df_team['Resultado'] == 'Gol'])
+            paradas = len(df_team[df_team['Resultado'] == 'Parada'])
+            fallos = len(df_team[df_team['Resultado'] == 'Fallo'])
+            perdidas = len(df_team[df_team['Resultado'] == 'Perdida'])
+            tiros = goles + paradas + fallos
+            efect = int(round((goles / tiros * 100), 0)) if tiros > 0 else 0
+            
+            pdf.set_font("Arial", "B", 12)
+            pdf.cell(0, 10, "Estadisticas Colectivas", ln=True)
+            pdf.set_font("Arial", "", 11)
+            pdf.cell(0, 8, f"Goles: {goles}  |  Efectividad: {efect}%  |  Tiros Totales: {tiros}", ln=True)
+            pdf.cell(0, 8, f"Perdidas: {perdidas}  |  Fallos: {fallos}  |  Paradas del Rival: {paradas}", ln=True)
+            pdf.ln(10)
+            
+            pdf.set_font("Arial", "B", 12)
+            pdf.cell(0, 10, "Rendimiento Individual", ln=True)
+            pdf.ln(2)
+            
+            df_jug = df_team[(df_team['Jugador'].notna()) & (df_team['Jugador'] != 'N/A') & (df_team['Jugador'] != '')].copy()
+            if not df_jug.empty:
+                df_jug['Jugador'] = df_jug['Jugador'].astype(str)
+                t_gol = df_jug[df_jug['Resultado'] == 'Gol'].groupby('Jugador').size().reset_index(name='Goles')
+                t_tir = df_jug[df_jug['Resultado'].isin(['Gol', 'Fallo', 'Parada'])].groupby('Jugador').size().reset_index(name='Tiros')
+                t_per = df_jug[df_jug['Resultado'] == 'Perdida'].groupby('Jugador').size().reset_index(name='Perdidas')
+                t_san = df_jug[df_jug['Resultado'] == 'Sancion'].groupby('Jugador').size().reset_index(name='Sanciones')
+                
+                pdf_stats = pd.merge(t_gol, t_tir, on='Jugador', how='outer').fillna(0)
+                pdf_stats = pd.merge(pdf_stats, t_per, on='Jugador', how='outer').fillna(0)
+                pdf_stats = pd.merge(pdf_stats, t_san, on='Jugador', how='outer').fillna(0)
+                pdf_stats[['Goles', 'Tiros', 'Perdidas', 'Sanciones']] = pdf_stats[['Goles', 'Tiros', 'Perdidas', 'Sanciones']].astype(int)
+                pdf_stats['Efectividad (%)'] = np.where(pdf_stats['Tiros'] > 0, (pdf_stats['Goles'] / pdf_stats['Tiros']) * 100, 0.0)
+                pdf_stats['Jugador'] = pdf_stats['Jugador'].apply(lambda x: x.split('.')[0] if x.endswith('.0') else x)
+                pdf_stats = pdf_stats.sort_values(by=['Goles', 'Efectividad (%)'], ascending=[False, False]).reset_index(drop=True)
+                
+                pdf.set_font("Arial", "B", 9)
+                col_widths = [45, 25, 25, 25, 25, 25]
+                headers = ['Jugador', 'Goles', 'Tiros', 'Perdidas', 'Sanciones', 'Efectividad']
+                pdf.set_x(15)
+                for i, h in enumerate(headers):
+                    pdf.cell(col_widths[i], 8, h, border=1, align='C')
+                pdf.ln()
+                
+                pdf.set_font("Arial", "", 9)
+                for _, row in pdf_stats.iterrows():
+                    pdf.set_x(15)
+                    pdf.cell(col_widths[0], 8, str(row['Jugador'])[:20], border=1, align='C')
+                    pdf.cell(col_widths[1], 8, str(row['Goles']), border=1, align='C')
+                    pdf.cell(col_widths[2], 8, str(row['Tiros']), border=1, align='C')
+                    pdf.cell(col_widths[3], 8, str(row['Perdidas']), border=1, align='C')
+                    pdf.cell(col_widths[4], 8, str(row['Sanciones']), border=1, align='C')
+                    pdf.cell(col_widths[5], 8, f"{row['Efectividad (%)']:.1f}%", border=1, align='C')
+                    pdf.ln()
+            else:
+                pdf.set_font("Arial", "I", 10)
+                pdf.cell(0, 10, "Sin datos de jugadores registrados.", ln=True)
+
+            pdf.add_page()
+            pdf.set_font("Arial", "B", 12)
+            pdf.cell(0, 10, f"Mapas Espaciales: {team_name}", ln=True)
+            pdf.image(p_cancha, x=10, y=30, w=90)
+            pdf.image(p_porteria, x=105, y=30, w=90)
+
+        # Construir páginas del Local
+        construir_hojas_equipo(eq_local, df_loc, p_c_loc, p_p_loc, True)
         
+        # Construir páginas del Visitante (Si existe)
+        if not df_vis.empty and eq_vis:
+            construir_hojas_equipo(eq_vis, df_vis, p_c_vis, p_p_vis, False)
+
+        # Construir página global (Momentum, Radar, Fatiga)
+        pdf.add_page()
+        pdf.set_font("Arial", "B", 14)
+        pdf.cell(0, 10, "ANALISIS COLECTIVO Y EVOLUCION", ln=True, align='C')
+        pdf.ln(5)
+        
+        if fig_mom:
+            pdf.set_font("Arial", "B", 12)
+            pdf.cell(0, 10, "1. Flujo del Partido (Momentum)", ln=True)
+            pdf.image(p_mom, x=10, y=30, w=190)
+            
+        pdf.set_y(120)
+        pdf.set_font("Arial", "B", 12)
+        pdf.cell(0, 10, "2. Toma de Decisiones y Fatiga Tactica", ln=True)
+        if fig_rad: pdf.image(p_rad, x=10, y=135, w=90)
+        if fig_evo: pdf.image(p_evo, x=105, y=135, w=90)
+
         pdf_path = os.path.join(tmpdir, "reporte.pdf")
         pdf.output(pdf_path)
         with open(pdf_path, "rb") as f: return f.read()
@@ -623,8 +653,12 @@ st.sidebar.markdown("### 📥 Exportar Análisis")
 
 if FPDF_DISPONIBLE and partido_actual != "Sin Datos" and not df.empty:
     if not estado_vivo:
-        # Pasamos df_partido_actual para que genere la tabla en base a todo el juego
-        pdf_bytes = crear_pdf_reporte(partido_actual, equipo_local, fig_cancha, fig_porteria, fig_momentum, fig_radar, fig_evolucion, stats_locales, df_partido_actual)
-        st.sidebar.download_button(label="⬇️ Descargar PDF del Partido", data=pdf_bytes, file_name=f"Reporte_{partido_actual}.pdf", mime="application/pdf")
+        if st.sidebar.button("⚙️ Preparar Reporte PDF"):
+            with st.sidebar.status("Construyendo reporte... esto tomará unos segundos"):
+                pdf_data = crear_pdf_reporte(partido_actual, equipo_local, equipo_visitante, fig_momentum, fig_radar, fig_evolucion, df_partido_actual)
+                st.session_state['pdf_listo'] = pdf_data
+                
+        if 'pdf_listo' in st.session_state:
+            st.sidebar.download_button(label="⬇️ Descargar PDF Ahora", data=st.session_state['pdf_listo'], file_name=f"Reporte_{partido_actual}.pdf", mime="application/pdf")
     else:
-        st.sidebar.info("Para descargar el PDF, pausa el tablero arriba (🟢 Conexión En Vivo -> 🔴 Tablero Congelado).")
+        st.sidebar.info("Para exportar, pausa el tablero arriba (🟢 Conexión En Vivo -> 🔴 Tablero Congelado).")
