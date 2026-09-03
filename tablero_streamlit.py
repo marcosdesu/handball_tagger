@@ -43,6 +43,10 @@ estado_vivo = st.session_state['freeze_toggle']
 
 if 'df_backup' not in st.session_state:
     st.session_state['df_backup'] = pd.DataFrame()
+    
+# 💡 MEMORIA PARA EL ANÁLISIS PROFUNDO (Opción C)
+if 'last_deep_refresh' not in st.session_state:
+    st.session_state['last_deep_refresh'] = time.time()
 
 # ==========================================
 # 🚨 ENLACE DE TU GOOGLE SHEET 
@@ -61,41 +65,58 @@ def obtener_url_csv(url):
 URL_OFICIAL = obtener_url_csv(URL_USUARIO)
 
 # ==========================================
-# 0. AUTO-REFRESCO 
+# 0. AUTO-REFRESCO (OPTIMIZADO A 15 SEG)
 # ==========================================
 if estado_vivo:
-    st_autorefresh(interval=8000, limit=None, key="data_refresh")
+    # Refresco principal para Goles, Cancha y Momentum
+    st_autorefresh(interval=15000, limit=None, key="data_refresh_macro")
 
 # ==========================================
-# 1. CONEXIÓN A DATOS (CON LIMPIEZA TOTAL)
+# 1. CONEXIÓN A DATOS (SEPARADA POR CAPAS)
 # ==========================================
+# 1.A Capa Rápida (Para el partido actual)
 @st.cache_data(ttl=5 if estado_vivo else 3600)
-def load_data():
+def load_data_fast():
     try:
         conector = "&" if "?" in URL_OFICIAL else "?"
-        url_nocache = f"{URL_OFICIAL}{conector}_t={int(time.time() // 8)}"
+        url_nocache = f"{URL_OFICIAL}{conector}_t={int(time.time() // 15)}"
         df_temp = pd.read_csv(url_nocache)
         df_temp = df_temp.dropna(how='all')
-        
-        if 'Equipo' in df_temp.columns:
-            df_temp['Equipo'] = df_temp['Equipo'].astype(str).str.strip()
-        if 'Jugador' in df_temp.columns:
-            df_temp['Jugador'] = df_temp['Jugador'].astype(str).str.strip()
-            
+        if 'Equipo' in df_temp.columns: df_temp['Equipo'] = df_temp['Equipo'].astype(str).str.strip()
+        if 'Jugador' in df_temp.columns: df_temp['Jugador'] = df_temp['Jugador'].astype(str).str.strip()
         return df_temp
     except Exception as e:
         return pd.DataFrame() 
 
-df_fresh = load_data()
+# 1.B Capa Profunda (Para el radar histórico - Controlada por el usuario)
+@st.cache_data(ttl=3600) # Se guarda en caché por 1 hora a menos que la fuerces a limpiar
+def load_data_deep(timestamp):
+    # La variable timestamp fuerza a la caché a romperse cuando el botón es presionado
+    try:
+        conector = "&" if "?" in URL_OFICIAL else "?"
+        url_nocache = f"{URL_OFICIAL}{conector}_t={int(timestamp)}"
+        df_temp = pd.read_csv(url_nocache)
+        df_temp = df_temp.dropna(how='all')
+        if 'Equipo' in df_temp.columns: df_temp['Equipo'] = df_temp['Equipo'].astype(str).str.strip()
+        if 'Jugador' in df_temp.columns: df_temp['Jugador'] = df_temp['Jugador'].astype(str).str.strip()
+        return df_temp
+    except Exception as e:
+        return pd.DataFrame() 
 
+df_fresh = load_data_fast()
 if not df_fresh.empty:
     st.session_state['df_backup'] = df_fresh.copy()
     df_vivo = df_fresh
 else:
     df_vivo = st.session_state['df_backup']
 
+# Carga de la base histórica controlada
+df_hist_deep = load_data_deep(st.session_state['last_deep_refresh'])
+if df_hist_deep.empty:
+    df_hist_deep = df_vivo.copy()
+
 # ==========================================
-# 2. FILTROS EN BARRA LATERAL (ARRIBA)
+# 2. FILTROS EN BARRA LATERAL
 # ==========================================
 st.sidebar.header("Filtros del Partido")
 
@@ -387,11 +408,8 @@ def plot_radar_avanzado(df_partido, df_historico, eq_local, eq_vis, modo):
 
     if modo == "El Rival de Hoy":
         vals_vis_actual = get_metrics(df_vis_actual, df_loc_actual)
-        
-        # Rellenos (Capas base)
         ax.fill(angulos, vals_vis_actual, color=color_vis, alpha=0.2)
         ax.fill(angulos, vals_loc_actual, color=color_loc, alpha=0.3)
-        # Líneas (Capas superiores)
         if eq_vis: ax.plot(angulos, vals_vis_actual, color=color_vis, linewidth=2, label=str(eq_vis))
         ax.plot(angulos, vals_loc_actual, color=color_loc, linewidth=2.5, label=str(eq_local))
         ax.set_title(f'Rendimiento: {eq_local} vs {eq_vis}', fontweight='bold', pad=20)
@@ -401,17 +419,10 @@ def plot_radar_avanzado(df_partido, df_historico, eq_local, eq_vis, modo):
         df_hist_riv = df_historico[(df_historico['Partido'].isin(partidos_local)) & (df_historico['Equipo'] != eq_local)]
         vals_loc_hist = get_metrics(df_hist_loc, df_hist_riv)
         
-        # 💡 SOLUCIÓN DE CAPAS (Z-INDEX): Primero se rellenan las áreas...
         ax.fill(angulos, vals_loc_hist, color='#9e9e9e', alpha=0.2)
         ax.fill(angulos, vals_loc_actual, color=color_loc, alpha=0.4)
-        
-        # ...Luego dibujamos la línea verde del partido de hoy...
         ax.plot(angulos, vals_loc_actual, color=color_loc, linewidth=2.5, label=f'{eq_local} (Hoy)')
-        
-        # ...¡Y HASTA ARRIBA DE TODO, con un color oscuro y punteado, la línea Histórica!
-        # Así siempre se verá, incluso si los datos son clones perfectos.
         ax.plot(angulos, vals_loc_hist, color='#424242', linewidth=2, linestyle='--', zorder=10, label='Promedio Histórico')
-        
         ax.set_title(f'Desempeño de {eq_local} vs Su Historia', fontweight='bold', pad=20)
 
     ax.set_ylim(0, 100)
@@ -493,24 +504,22 @@ def plot_tendencia_cansancio(df_partido, df_historico, eq_local, modo):
     plt.subplots_adjust(bottom=0.25)
     return fig
 
-# Generamos las gráficas macro y micro
-fig_cancha = plot_cancha(df)
-fig_porteria = plot_porteria(df)
-fig_momentum = plot_momentum(df_partido_actual) if not df_partido_actual.empty else None
-
 # ==========================================
 # LAYOUT PRINCIPAL (UI FRONT-END)
 # ==========================================
 st.markdown("### 📍 Nivel 1: El Espacio (Origen y Destino)")
 col_cancha, col_porteria = st.columns(2) 
 with col_cancha: 
+    fig_cancha = plot_cancha(df)
     st.pyplot(fig_cancha)
     plt.close(fig_cancha) 
 with col_porteria: 
+    fig_porteria = plot_porteria(df)
     st.pyplot(fig_porteria)
     plt.close(fig_porteria)
 
 st.markdown("### 📈 Nivel 2: El Flujo del Partido")
+fig_momentum = plot_momentum(df_partido_actual) if not df_partido_actual.empty else None
 if fig_momentum: 
     st.pyplot(fig_momentum)
     plt.close(fig_momentum)
@@ -518,11 +527,19 @@ else:
     st.info("Esperando datos para calcular el Momentum...")
 st.divider()
 
-st.markdown("### 🧠 Nivel 3: Toma de Decisiones y Evolución Táctica")
+# 💡 OPCIÓN C: BOTÓN DE ANÁLISIS PROFUNDO
+st.markdown("### 🧠 Nivel 3 y 4: Análisis Profundo e Individual")
+c1_btn, c2_btn = st.columns([1, 2])
+with c1_btn:
+    if st.button("🔄 Actualizar Nivel Profundo (Radar y Tablas)", help="Calcula el historial pesado sin trabar el partido"):
+        st.session_state['last_deep_refresh'] = time.time()
+with c2_btn:
+    st.info("El Radar y las Tablas no se refrescan solos para no trabar tu partido. Presiona el botón para calcularlos.")
+
 modo_analisis = st.radio("🔍 Perspectiva de Análisis:", ["El Rival de Hoy", "Nuestra Historia"], horizontal=True)
 
-fig_radar = plot_radar_avanzado(df_partido_actual, df_vivo, equipo_local, equipo_visitante, modo_analisis)
-fig_evolucion = plot_tendencia_cansancio(df_partido_actual, df_vivo, equipo_local, modo_analisis)
+fig_radar = plot_radar_avanzado(df_partido_actual, df_hist_deep, equipo_local, equipo_visitante, modo_analisis)
+fig_evolucion = plot_tendencia_cansancio(df_partido_actual, df_hist_deep, equipo_local, modo_analisis)
 
 col_rad, col_ev = st.columns(2)
 with col_rad: 
@@ -533,13 +550,12 @@ with col_ev:
     plt.close(fig_evolucion)
 st.divider()
 
-st.markdown("### 📋 Nivel 4: Rendimiento Individual Detallado")
 vista_tabla = st.radio("Filtro de Tabla:", ["Partido Actual", "Promedio Histórico"], horizontal=True)
 
 if vista_tabla == "Partido Actual":
     df_base = df
 else:
-    df_base = df_vivo[df_vivo['Equipo'] == equipo_local].copy()
+    df_base = df_hist_deep[df_hist_deep['Equipo'] == equipo_local].copy()
 
 df_jugadores = df_base[(df_base['Jugador'].notna()) & (df_base['Jugador'] != 'N/A') & (df_base['Jugador'] != '')].copy()
 
@@ -753,7 +769,7 @@ st.sidebar.markdown("### 🕹️ Control del Tablero")
 st.sidebar.toggle("🟢 Conexión En Vivo", key="freeze_toggle", help="Apágalo para detener el refresco y exportar el reporte.")
 
 if estado_vivo:
-    st.sidebar.info("Actualizando datos cada 8 segundos.")
+    st.sidebar.info("Actualizando datos cada 15 segundos.")
 else:
     st.sidebar.warning("🔴 Tablero Congelado")
 
@@ -763,7 +779,7 @@ if FPDF_DISPONIBLE and partido_actual != "Sin Datos" and not df.empty:
     if not estado_vivo:
         if st.sidebar.button("⚙️ Preparar Reporte PDF"):
             with st.sidebar.status("Construyendo reporte táctico..."):
-                pdf_data = crear_pdf_reporte(partido_actual, equipo_local, equipo_visitante, df_partido_actual, df_vivo)
+                pdf_data = crear_pdf_reporte(partido_actual, equipo_local, equipo_visitante, df_partido_actual, df_hist_deep)
                 st.session_state['pdf_listo'] = pdf_data
                 
         if 'pdf_listo' in st.session_state:
