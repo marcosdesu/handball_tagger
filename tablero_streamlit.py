@@ -308,7 +308,8 @@ def plot_momentum(df_all):
     goles_df = df_mom[df_mom['Resultado'].astype(str).str.strip().str.lower() == 'gol'].sort_values('match_min')
     
     t_eventos, score_loc, score_vis, momentum = [0], [0], [0], [0]
-    marcador_L, marcador_V, racha_L, racha_V = 0, 0, 0, 0
+    marcador_L, marcador_V = 0, 0
+    racha_L, racha_V = 0, 0 # Contadores de goles consecutivos
 
     color_loc = '#00e676' if 'MEX' in equipo_local.upper() or 'CITRON' in equipo_local.upper() else '#1565c0'
     color_vis = '#d32f2f'
@@ -316,12 +317,24 @@ def plot_momentum(df_all):
     for _, row in goles_df.iterrows():
         t = row['match_min']
         eq = str(row['Equipo']).strip()
-        if eq == equipo_local: marcador_L += 1; racha_L += 1; racha_V = 0
-        elif eq == equipo_visitante: marcador_V += 1; racha_V += 1; racha_L = 0
+        
+        # 💡 LÓGICA TÁCTICA CORREGIDA:
+        if eq == equipo_local: 
+            marcador_L += 1
+            racha_L += 1
+            racha_V = 0 # El gol local CORTA a cero la racha visitante
+        elif eq == equipo_visitante: 
+            marcador_V += 1
+            racha_V += 1
+            racha_L = 0 # El gol visitante CORTA a cero la racha local
 
-        if racha_L > 0: mom_val = racha_L
-        elif racha_V > 0: mom_val = -racha_V
-        else: mom_val = 0
+        # 💡 UMBRAL DE MOMENTUM: Solo existe si hay 2 o más goles sin respuesta
+        if racha_L >= 2: 
+            mom_val = racha_L
+        elif racha_V >= 2: 
+            mom_val = -racha_V
+        else: 
+            mom_val = 0 # Si van 1 a 1, no hay momentum.
 
         t_eventos.append(t); score_loc.append(marcador_L); score_vis.append(marcador_V); momentum.append(mom_val)
 
@@ -343,11 +356,11 @@ def plot_momentum(df_all):
     ax_marcador.set_ylabel('Goles', fontsize=10, fontweight='bold')
     ax_marcador.grid(True, linestyle='--', alpha=0.4); ax_marcador.legend(fontsize=10, loc='upper left')
 
-    ax_momentum.fill_between(t_arr, 0, mom_positivo, step='post', facecolor=color_loc, alpha=0.7, label=f'Momentum {equipo_local}')
-    ax_momentum.fill_between(t_arr, 0, mom_negativo, step='post', facecolor=color_vis, alpha=0.7, label=f'Momentum {equipo_visitante if equipo_visitante else "Visitante"}')
+    ax_momentum.fill_between(t_arr, 0, mom_positivo, step='post', facecolor=color_loc, alpha=0.7, label=f'Racha {equipo_local}')
+    ax_momentum.fill_between(t_arr, 0, mom_negativo, step='post', facecolor=color_vis, alpha=0.7, label=f'Racha {equipo_visitante if equipo_visitante else "Visitante"}')
     ax_momentum.axvline(x=30, color='black', linestyle='--', alpha=0.5); ax_momentum.axhline(y=0, color='black', linewidth=1, alpha=0.8)
     ax_momentum.set_xlabel('Tiempo de Juego (Minutos)', fontsize=10, fontweight='bold')
-    ax_momentum.set_ylabel('Momentum', fontsize=10, fontweight='bold')
+    ax_momentum.set_ylabel('Racha (Goles)', fontsize=10, fontweight='bold')
     ax_momentum.grid(True, axis='x', linestyle='--', alpha=0.4)
     ax_momentum.legend(fontsize=9, loc='upper left')
     
