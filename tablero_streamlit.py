@@ -44,7 +44,7 @@ estado_vivo = st.session_state['freeze_toggle']
 if 'df_backup' not in st.session_state:
     st.session_state['df_backup'] = pd.DataFrame()
     
-# 💡 MEMORIA PARA EL ANÁLISIS PROFUNDO (Opción C)
+# MEMORIA PARA EL ANÁLISIS PROFUNDO (Opción Híbrida)
 if 'last_deep_refresh' not in st.session_state:
     st.session_state['last_deep_refresh'] = time.time()
 
@@ -68,13 +68,11 @@ URL_OFICIAL = obtener_url_csv(URL_USUARIO)
 # 0. AUTO-REFRESCO (OPTIMIZADO A 15 SEG)
 # ==========================================
 if estado_vivo:
-    # Refresco principal para Goles, Cancha y Momentum
     st_autorefresh(interval=15000, limit=None, key="data_refresh_macro")
 
 # ==========================================
 # 1. CONEXIÓN A DATOS (SEPARADA POR CAPAS)
 # ==========================================
-# 1.A Capa Rápida (Para el partido actual)
 @st.cache_data(ttl=5 if estado_vivo else 3600)
 def load_data_fast():
     try:
@@ -88,10 +86,8 @@ def load_data_fast():
     except Exception as e:
         return pd.DataFrame() 
 
-# 1.B Capa Profunda (Para el radar histórico - Controlada por el usuario)
-@st.cache_data(ttl=3600) # Se guarda en caché por 1 hora a menos que la fuerces a limpiar
+@st.cache_data(ttl=3600)
 def load_data_deep(timestamp):
-    # La variable timestamp fuerza a la caché a romperse cuando el botón es presionado
     try:
         conector = "&" if "?" in URL_OFICIAL else "?"
         url_nocache = f"{URL_OFICIAL}{conector}_t={int(timestamp)}"
@@ -110,7 +106,6 @@ if not df_fresh.empty:
 else:
     df_vivo = st.session_state['df_backup']
 
-# Carga de la base histórica controlada
 df_hist_deep = load_data_deep(st.session_state['last_deep_refresh'])
 if df_hist_deep.empty:
     df_hist_deep = df_vivo.copy()
@@ -169,8 +164,6 @@ equipos_totales = [str(x) for x in df_partido_actual['Equipo'].dropna().unique()
 equipo_local = equipos_totales[0] if len(equipos_totales) > 0 else 'Local'
 equipo_visitante = equipos_totales[1] if len(equipos_totales) > 1 else None
 
-stats_locales = {'goles':0, 'efect':0, 'tiros':0, 'perd':0, 'paradas':0, 'fallos':0}
-
 # ==========================================
 # 3. ESTADÍSTICAS SUPERIORES
 # ==========================================
@@ -189,9 +182,6 @@ if not df.empty and 'Equipo' in df.columns:
         tiros_totales = goles + paradas + fallos
         efectividad = int(round((goles / tiros_totales * 100), 0)) if tiros_totales > 0 else 0
         
-        if eq == equipo_local:
-            stats_locales = {'goles':goles, 'efect':efectividad, 'tiros':tiros_totales, 'perd':perdidas, 'paradas':paradas, 'fallos':fallos}
-        
         c1, c2, c3, c4, c5, c6 = st.columns(6)
         c1.metric("Goles", goles)
         c2.metric("Efectividad", f"{efectividad}%")
@@ -203,6 +193,43 @@ if not df.empty and 'Equipo' in df.columns:
 else:
     st.info("Esperando datos para calcular métricas...")
 st.divider()
+
+# ==========================================
+# 3.5 CEREBRO DE TIEMPO INTELIGENTE 
+# ==========================================
+def preparar_tiempos_df(df_input):
+    df_temp = df_input.copy()
+    def get_raw_min(t):
+        try:
+            p = str(t).split(':')
+            if len(p) == 3: return int(p[0]) + int(p[1])/60.0
+            if len(p) == 2: return int(p[0]) + float(p[1])/60.0
+            return 0
+        except: return 0
+        
+    df_temp['raw_min'] = df_temp['Tiempo'].apply(get_raw_min) if 'Tiempo' in df_temp.columns else 0
+    df_temp['Periodo_clean'] = df_temp['Periodo'].astype(str).str.strip().str.upper() if 'Periodo' in df_temp.columns else '1T'
+    
+    dict_max = {}
+    if 'Partido' in df_temp.columns:
+        df_1t = df_temp[df_temp['Periodo_clean'] == '1T']
+        if not df_1t.empty:
+            dict_max = df_1t.groupby('Partido')['raw_min'].max().to_dict()
+            
+    def ajustar_tiempo(row):
+        m = row['raw_min']
+        p = row['Periodo_clean']
+        part = row.get('Partido', 'N/A')
+        
+        max_1t = dict_max.get(part, 30)
+        if pd.isna(max_1t) or max_1t <= 0: max_1t = 30
+        
+        if p == '2T' and m < max_1t:
+            m += max_1t
+        return m
+        
+    df_temp['match_min'] = df_temp.apply(ajustar_tiempo, axis=1)
+    return df_temp, dict_max
 
 # ==========================================
 # 4. FUNCIONES DE DIBUJO 
@@ -292,24 +319,17 @@ def plot_porteria(df_filtrado):
     return fig
 
 def plot_momentum(df_all):
-    df_mom = df_all.copy()
-    def convertir_a_minutos(row):
-        try:
-            partes = str(row['Tiempo']).split(':')
-            if len(partes) == 3: h, m, s = int(partes[0]), int(partes[1]), float(partes[2])
-            elif len(partes) == 2: h, m, s = 0, int(partes[0]), float(partes[1])
-            else: return 0
-            minutos = h * 60 + m + s / 60
-            if str(row['Periodo']).strip().upper() == '2T': minutos += 30
-            return minutos
-        except: return 0
-
-    df_mom['match_min'] = df_mom.apply(convertir_a_minutos, axis=1)
+    if df_all.empty: return None
+    df_mom, dict_max = preparar_tiempos_df(df_all)
+    
+    partido_id = df_all['Partido'].iloc[0] if 'Partido' in df_all.columns else "N/A"
+    linea_mitad = dict_max.get(partido_id, 30)
+    if pd.isna(linea_mitad) or linea_mitad <= 0: linea_mitad = 30
+    
     goles_df = df_mom[df_mom['Resultado'].astype(str).str.strip().str.lower() == 'gol'].sort_values('match_min')
     
     t_eventos, score_loc, score_vis, momentum = [0], [0], [0], [0]
-    marcador_L, marcador_V = 0, 0
-    racha_L, racha_V = 0, 0 # Contadores de goles consecutivos
+    marcador_L, marcador_V, racha_L, racha_V = 0, 0, 0, 0
 
     color_loc = '#00e676' if 'MEX' in equipo_local.upper() or 'CITRON' in equipo_local.upper() else '#1565c0'
     color_vis = '#d32f2f'
@@ -317,24 +337,14 @@ def plot_momentum(df_all):
     for _, row in goles_df.iterrows():
         t = row['match_min']
         eq = str(row['Equipo']).strip()
-        
-        # 💡 LÓGICA TÁCTICA CORREGIDA:
         if eq == equipo_local: 
-            marcador_L += 1
-            racha_L += 1
-            racha_V = 0 # El gol local CORTA a cero la racha visitante
+            marcador_L += 1; racha_L += 1; racha_V = 0
         elif eq == equipo_visitante: 
-            marcador_V += 1
-            racha_V += 1
-            racha_L = 0 # El gol visitante CORTA a cero la racha local
+            marcador_V += 1; racha_V += 1; racha_L = 0
 
-        # 💡 UMBRAL DE MOMENTUM: Solo existe si hay 2 o más goles sin respuesta
-        if racha_L >= 2: 
-            mom_val = racha_L
-        elif racha_V >= 2: 
-            mom_val = -racha_V
-        else: 
-            mom_val = 0 # Si van 1 a 1, no hay momentum.
+        if racha_L >= 2: mom_val = racha_L
+        elif racha_V >= 2: mom_val = -racha_V
+        else: mom_val = 0
 
         t_eventos.append(t); score_loc.append(marcador_L); score_vis.append(marcador_V); momentum.append(mom_val)
 
@@ -352,13 +362,14 @@ def plot_momentum(df_all):
     
     ax_marcador.step(t_arr, score_loc, where='post', color=color_loc, linewidth=3, label=equipo_local)
     ax_marcador.step(t_arr, score_vis, where='post', color=color_vis, linewidth=3, label=equipo_visitante if equipo_visitante else 'Visitante')
-    ax_marcador.axvline(x=30, color='black', linestyle='--', alpha=0.5) 
+    ax_marcador.axvline(x=linea_mitad, color='black', linestyle='--', alpha=0.5) 
     ax_marcador.set_ylabel('Goles', fontsize=10, fontweight='bold')
     ax_marcador.grid(True, linestyle='--', alpha=0.4); ax_marcador.legend(fontsize=10, loc='upper left')
 
     ax_momentum.fill_between(t_arr, 0, mom_positivo, step='post', facecolor=color_loc, alpha=0.7, label=f'Racha {equipo_local}')
     ax_momentum.fill_between(t_arr, 0, mom_negativo, step='post', facecolor=color_vis, alpha=0.7, label=f'Racha {equipo_visitante if equipo_visitante else "Visitante"}')
-    ax_momentum.axvline(x=30, color='black', linestyle='--', alpha=0.5); ax_momentum.axhline(y=0, color='black', linewidth=1, alpha=0.8)
+    ax_momentum.axvline(x=linea_mitad, color='black', linestyle='--', alpha=0.5)
+    ax_momentum.axhline(y=0, color='black', linewidth=1, alpha=0.8)
     ax_momentum.set_xlabel('Tiempo de Juego (Minutos)', fontsize=10, fontweight='bold')
     ax_momentum.set_ylabel('Racha (Goles)', fontsize=10, fontweight='bold')
     ax_momentum.grid(True, axis='x', linestyle='--', alpha=0.4)
@@ -366,7 +377,10 @@ def plot_momentum(df_all):
     
     max_mom = max(abs(mom_arr.min()), abs(mom_arr.max()), 2) + 1
     ax_momentum.set_ylim(-max_mom, max_mom); ax_momentum.set_yticks([]) 
-    eje_x_max = max(60, minuto_actual)
+    
+    eje_x_max = max(linea_mitad * 2, minuto_actual)
+    eje_x_max = int(np.ceil(eje_x_max / 5.0) * 5) 
+    
     ax_marcador.set_xlim(0, eje_x_max)
     ax_marcador.set_xticks(np.arange(0, eje_x_max + 5, 5))
     
@@ -458,18 +472,10 @@ def plot_tendencia_cansancio(df_partido, df_historico, eq_local, modo):
         ax.axis('off')
         return fig
         
-    def get_minuto(row):
-        try:
-            partes = str(row['Tiempo']).split(':')
-            if len(partes) == 3: m = int(partes[1])
-            elif len(partes) == 2: m = int(partes[0])
-            else: return 0
-            if str(row['Periodo']).strip().upper() == '2T': m += 30
-            return m
-        except: return 0
-        
-    df_hoy = df_partido[df_partido['Equipo'] == eq_local].copy()
-    df_hoy['Minuto'] = df_hoy.apply(get_minuto, axis=1)
+    df_hoy_raw = df_partido[df_partido['Equipo'] == eq_local]
+    df_hoy, _ = preparar_tiempos_df(df_hoy_raw)
+    df_hoy['Minuto'] = df_hoy['match_min']
+    
     bins = [0, 10, 20, 30, 40, 50, 60, 100]
     labels = ['0-10', '10-20', '20-30', '30-40', '40-50', '50-60', '60+']
     df_hoy['Tramo'] = pd.cut(df_hoy['Minuto'], bins=bins, labels=labels, right=False)
@@ -488,10 +494,11 @@ def plot_tendencia_cansancio(df_partido, df_historico, eq_local, modo):
     if modo == "Nuestra Historia":
         partidos_local = df_historico[df_historico['Equipo'] == eq_local]['Partido'].unique()
         divisor = len(partidos_local) if len(partidos_local) > 0 else 1
-        df_hist = df_historico[(df_historico['Partido'].isin(partidos_local)) & (df_historico['Equipo'] == eq_local)].copy()
+        df_hist_raw = df_historico[(df_historico['Partido'].isin(partidos_local)) & (df_historico['Equipo'] == eq_local)]
         
-        if not df_hist.empty:
-            df_hist['Minuto'] = df_hist.apply(get_minuto, axis=1)
+        if not df_hist_raw.empty:
+            df_hist, _ = preparar_tiempos_df(df_hist_raw)
+            df_hist['Minuto'] = df_hist['match_min']
             df_hist['Tramo'] = pd.cut(df_hist['Minuto'], bins=bins, labels=labels, right=False)
             goles_hist = (df_hist[df_hist['Resultado'] == 'Gol'].groupby('Tramo', observed=False).size() / divisor)
             perdidas_hist = (df_hist[df_hist['Resultado'] == 'Perdida'].groupby('Tramo', observed=False).size() / divisor)
@@ -540,7 +547,7 @@ else:
     st.info("Esperando datos para calcular el Momentum...")
 st.divider()
 
-# 💡 OPCIÓN C: BOTÓN DE ANÁLISIS PROFUNDO
+# 💡 NIVEL 3 Y 4 (ANÁLISIS PROFUNDO CON BOTÓN MANUAL)
 st.markdown("### 🧠 Nivel 3 y 4: Análisis Profundo e Individual")
 c1_btn, c2_btn = st.columns([1, 2])
 with c1_btn:
